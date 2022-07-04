@@ -4,7 +4,7 @@ args = commandArgs(trailingOnly=TRUE)
 eQTL = args[1] #'samplename'
 GWAS =args[2] # '../donor_ids.tsv'
 # eQTL="/lustre/scratch123/hgi/projects/bhf_finemap/summary_stats/eQTLs/all/Inhibitory.neurons.2.gz"
-# GWAS="/lustre/scratch123/hgi/projects/bhf_finemap/summary_stats/Lacular_stroke/GCST90014122_buildGRCh37.tsv"
+# GWAS="/lustre/scratch123/hgi/projects/bhf_finemap/summary_stats/Intracerebral_Hemorrhage/3980413.Woo.2014.zip"
 print('eQTL')
 print(eQTL)
 print('GWAS')
@@ -82,7 +82,49 @@ eqtl$se=abs(eqtl$beta)/sqrt(qchisq(eqtl$p,df = 1,lower.tail = F))
 Celltype=tail(strsplit(eqtl.file,split="/")[[1]],n=1)
 Celltype=gsub('\\.','_',Celltype)
 
-map=fread(GWAS)
+
+GWAS_ext = tail(strsplit(GWAS,split="\\.")[[1]],n=1)
+
+if(GWAS_ext=='zip'){
+  print('zip')
+  map=fread(paste('unzip -p ',GWAS,sep=''))
+
+} else if (GWAS_ext=='gz'){
+  map=fread(paste('gunzip -cq ',GWAS,sep=''))
+} else{
+  map=fread(GWAS)
+}
+
+
+names(map)[names(map) == 'P'] <- "p_value"
+names(map)[names(map) == 'REF'] <- "effect_allele"
+names(map)[names(map) == 'ALT'] <- "other_allele"
+names(map)[names(map) == 'CHROM'] <- "chromosome"
+names(map)[names(map) == 'ID'] <- "variant_id"
+names(map)[names(map) == 'POS'] <- "base_pair_location"
+names(map)[names(map) == 'BETA'] <- "beta"
+names(map)[names(map) == 'SE'] <- "standard_error"
+
+names(map)[names(map) == 'P-value'] <- "p_value"
+names(map)[names(map) == 'Allele1'] <- "effect_allele"
+names(map)[names(map) == 'Allele2'] <- "other_allele"
+names(map)[names(map) == 'CHR'] <- "chromosome"
+names(map)[names(map) == 'MarkerName'] <- "variant_id"
+names(map)[names(map) == 'pos'] <- "base_pair_location"
+names(map)[names(map) == 'Effect'] <- "beta"
+names(map)[names(map) == 'StdErr'] <- "standard_error"
+
+names(map)[names(map) == 'P-value'] <- "p_value"
+names(map)[names(map) == 'Allele1'] <- "effect_allele"
+names(map)[names(map) == 'Allele2'] <- "other_allele"
+names(map)[names(map) == 'CHR'] <- "chromosome"
+names(map)[names(map) == 'MarkerName'] <- "variant_id"
+names(map)[names(map) == 'pos'] <- "base_pair_location"
+names(map)[names(map) == 'Effect'] <- "beta"
+names(map)[names(map) == 'StdErr'] <- "standard_error"
+
+
+# fitted_outcome <- susie_rss(z = outcome$beta/outcome$standard_error, R = ld_GWAS,L = 10,coverage = 0.75,max_iter = 150)
 map2 = map[map$p_value< 5e-8]
 #First gene snp pair
 # single_eqtl1 = eqtl[eqtl$p< 5e-2] #We do notfilter out the genes.
@@ -111,7 +153,7 @@ for (row in 1:nrow(map2)){
       variants_of_interest = map[map$chromosome==chromosome1]
       variants_of_interest = variants_of_interest[variants_of_interest$base_pair_location>range_min$base_pair_location & variants_of_interest$base_pair_location<range_max$base_pair_location]
       outcome = variants_of_interest
-      fitted_outcome = susie_rss_fit_GWAS(outcome)
+      # fitted_outcome = susie_rss_fit_GWAS(outcome)
       single_eqtl_all=t3[t3$base_pair_location>range_min$base_pair_location & t3$base_pair_location<range_max$base_pair_location]
       all_uq = unique(single_eqtl_all$gene)
       # Check which genes in this region has a signal
@@ -119,7 +161,7 @@ for (row in 1:nrow(map2)){
       # we run the coloc for a gene at a time snce we cant have repeated variants in a ld matrix
       for (qtl1 in all_uq){
         print(qtl1)
-        # qtl1='ATP6V1E2_ENSG00000250565'
+        # qtl1='DNAI2_ENSG00000171595'
         # single_eqtl=single_eqtl_all[single_eqtl_all$gene==qtl1,]
         # variants_of_interest3 = single_eqtl[single_eqtl$base_pair_location>range_min$base_pair_location & single_eqtl$base_pair_location<range_max$base_pair_location]
         single_eqtl=t3[t3$gene==qtl1,] 
@@ -127,25 +169,64 @@ for (row in 1:nrow(map2)){
         # all_snps = unique(c(single_eqtl$SNP, variants_of_interest$variant_id))
         # Have to do the mapping for a gene at a time in the locus, since the sushie needs an ld matrix with no repeated SNPs.
 
-        if (min(single_eqtl$p)<5e-4){
-                    vars = intersect(outcome$variant_id,single_eqtl$SNP)
-          outcome2 = outcome[match(vars,outcome$variant_id),]
-          rownames(outcome2) <- outcome2$variant_id
-          single_eqtl2 = single_eqtl[match(vars,single_eqtl$SNP),]
-          rownames(single_eqtl2) <- single_eqtl2$SNP
+        
+        # break
+        # We intersect the variants so that they are pointinmg to the same variant. 
 
+        vars = intersect(outcome$variant_id,single_eqtl$SNP)
+        outcome2 = outcome[match(vars,outcome$variant_id),]
+        rownames(outcome2) <- outcome2$variant_id
+        single_eqtl2 = single_eqtl[match(vars,single_eqtl$SNP),]
+        rownames(single_eqtl2) <- single_eqtl2$SNP
+
+        if (min(single_eqtl2$p)<5e-5){
+          # break
+          # single_eqtl = single_eqtl2
+          # outcome = outcome2
           fitted_outcome = susie_rss_fit_GWAS(outcome2)
           fitted_eqtl = susie_rss_fit(single_eqtl2)
 
           # print(summary(fitted_eqtl))
+          # print(summary(fitted_outcome))
           # if (length(fitted_eqtl$sets$cs)>0){
               # GWAS
-              jpeg(paste('',variant_id,'_',qtl1,'_',chromosome1,'rplowt.jpg',sep=''))
+              jpeg(paste('/lustre/scratch123/hgi/projects/bhf_finemap/coloc/tmp/',variant_id,'_',qtl1,'_',chromosome1,'rplowt.jpg',sep=''))
                 par(mfrow=c(2,1))
-                plot(outcome$base_pair_location,-log10(outcome$p_value),col=ifelse(outcome$base_pair_location %in% c(base_pair_location$base_pair_location), 'red', 'black'),pch=20,xlim = c(range_min$base_pair_location-1000000,range_max$base_pair_location+1000000))
+                plot(outcome2$base_pair_location,-log10(outcome2$p_value),col=ifelse(outcome2$base_pair_location %in% c(base_pair_location$base_pair_location), 'red', 'black'),pch=19,xlim = c(range_min$base_pair_location-1000000,range_max$base_pair_location+1000000),ylim=c(0,round(max(-log10(outcome$p_value))+1)), lty = 1,lwd=1)
+                par(new=TRUE)
+                # plot(outcome[2319]$base_pair_location,-log10(outcome[2319]$p_value),col='green',, cex=1.5,lty = 2,pch=5,lwd=1,xlim = c(range_min$base_pair_location-1000000,range_max$base_pair_location+1000000),ylim=c(0,round(max(-log10(outcome$p_value))+1)),ylab="",yaxt="n",xlab="",xaxt="n")
+                print("Outcome")
+                for (it in 1:length(fitted_outcome$sets$cs)){
+                  r = ls(fitted_outcome$sets$cs[it])[1]
+                  # print(r)
+                  # fitted_eqtl$sets$cs[it][[r]]  
+                  for (t in fitted_outcome$sets$cs[it][[r]]){
+                    # print(single_eqtl[t]$base_pair_location)
+                    print(outcome2[t]$variant_id)
+                    plot(outcome2[t]$base_pair_location,-log10(outcome2[t]$p),col='green',cex=1.5,lty = 2,pch=5,lwd=1,xlim = c(range_min$base_pair_location-1000000,range_max$base_pair_location+1000000),ylim=c(0,round(max(-log10(outcome2$p_value))+1)),ylab="",yaxt="n",xlab="",xaxt="n")
+                    par(new=TRUE)
+                  }
+                }
                 title(variant_id, line = -2, outer = TRUE)
-                plot(single_eqtl$base_pair_location,-log10(single_eqtl$p),col=ifelse(single_eqtl$base_pair_location %in% c(single_eqtl2$base_pair_location), 'black','red'),pch=20,xlim = c(range_min$base_pair_location-1000000,range_max$base_pair_location+1000000))
+                
+                plot(single_eqtl2$base_pair_location,-log10(single_eqtl2$p),col=ifelse(single_eqtl2$base_pair_location %in% c(single_eqtl2$base_pair_location), 'black','red'),pch=20,ylim=c(0,round(max(-log10(single_eqtl2$p))+1)),xlim = c(range_min$base_pair_location-1000000,range_max$base_pair_location+1000000))
+                par(new=TRUE)
+                print("eQTL")
+                for (it in 1:length(fitted_eqtl$sets$cs)){
+                  r = ls(fitted_eqtl$sets$cs[it])[1]
+                  # print(r)
+                  # fitted_eqtl$sets$cs[it][[r]]  
+                  for (t in fitted_eqtl$sets$cs[it][[r]]){
+                    # print(single_eqtl[t]$base_pair_location)
+                    print(single_eqtl2[t]$SNP)
+                    plot(single_eqtl2[t]$base_pair_location,-log10(single_eqtl2[t]$p),col='green',cex=1.5,lty = 2,pch=5,lwd=1,xlim = c(range_min$base_pair_location-1000000,range_max$base_pair_location+1000000),ylim=c(0,round(max(-log10(single_eqtl2$p))+1)),ylab="",yaxt="n",xlab="",xaxt="n")
+                    par(new=TRUE)
+                  }
+                }
               dev.off()
+
+
+
 
               if (length(fitted_outcome$sets$cs)>0 && length(fitted_eqtl$sets$cs)>0){
                 print('yes')
@@ -158,16 +239,13 @@ for (row in 1:nrow(map2)){
                   # sensitivity(colocalisation,rule = "H4>0.05",plot.manhattans = F)
                   # write.table(colocalisation, file = paste(qtl1,'_colocalisation2.tsv',sep=''),sep='\t')
                 }
-                
                 print('########RESULTS#############')
                 print(colocalisation)
                 print('#####################')
               }
           # } #END OF FITTED EQTL
         } #END of CHECKING IF THERE IS A SIGNAL IN EQTL
-      } #END OF LOOPING THROUGH QTLS
+      } #END OF LOOPING THROUGH QTLS - 
     } #END OF CHECKIN IF THERE ARE VARIANTS
   } # now select the SNPs that overlap with the 2mb window of GWAS (this may need to be changed to gene selection criteria)
-
-
 # done
