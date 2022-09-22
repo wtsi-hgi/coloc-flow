@@ -9,6 +9,20 @@ print('eQTL')
 print(eQTL)
 print('GWAS')
 print(GWAS)
+library(biomaRt)
+
+# library(biomaRt) # biomaRt_2.30.0
+
+# snp_mart = useMart("ENSEMBL_MART_SNP", dataset="hsapiens_snp")
+
+# snp_ids = c("rs16828074", "rs17232800")
+# snp_attributes = c("refsnp_id", "chr_name", "chrom_start")
+
+# snp_locations = getBM(attributes=snp_attributes, filters="snp_filter", 
+#                       values=snp_ids, mart=snp_mart)
+
+# snp_locations
+
 #if(!require("remotes"))
 #  install.packages("remotes") # if necessary
 #library(remotes)
@@ -114,6 +128,8 @@ names(map)[names(map) == 'pos'] <- "base_pair_location"
 names(map)[names(map) == 'Effect'] <- "beta"
 names(map)[names(map) == 'StdErr'] <- "standard_error"
 
+
+# 3980413.Woo.2014.zip  -- doesnt have a position info
 names(map)[names(map) == 'P-value'] <- "p_value"
 names(map)[names(map) == 'Allele1'] <- "effect_allele"
 names(map)[names(map) == 'Allele2'] <- "other_allele"
@@ -122,8 +138,7 @@ names(map)[names(map) == 'MarkerName'] <- "variant_id"
 names(map)[names(map) == 'pos'] <- "base_pair_location"
 names(map)[names(map) == 'Effect'] <- "beta"
 names(map)[names(map) == 'StdErr'] <- "standard_error"
-
-
+names(map)[names(map) == 'NStudies'] <- "N"
 # fitted_outcome <- susie_rss(z = outcome$beta/outcome$standard_error, R = ld_GWAS,L = 10,coverage = 0.75,max_iter = 150)
 map2 = map[map$p_value< 5e-8]
 #First gene snp pair
@@ -184,12 +199,17 @@ for (row in 1:nrow(map2)){
           # single_eqtl = single_eqtl2
           # outcome = outcome2
           fitted_outcome = susie_rss_fit_GWAS(outcome2)
+          # here we would perform the SNP conditioning
+
+
+
           fitted_eqtl = susie_rss_fit(single_eqtl2)
 
           # print(summary(fitted_eqtl))
           # print(summary(fitted_outcome))
           # if (length(fitted_eqtl$sets$cs)>0){
               # GWAS
+              
               jpeg(paste('/lustre/scratch123/hgi/projects/bhf_finemap/coloc/tmp/',variant_id,'_',qtl1,'_',chromosome1,'rplowt.jpg',sep=''))
                 par(mfrow=c(2,1))
                 plot(outcome2$base_pair_location,-log10(outcome2$p_value),col=ifelse(outcome2$base_pair_location %in% c(base_pair_location$base_pair_location), 'red', 'black'),pch=19,xlim = c(range_min$base_pair_location-1000000,range_max$base_pair_location+1000000),ylim=c(0,round(max(-log10(outcome$p_value))+1)), lty = 1,lwd=1)
