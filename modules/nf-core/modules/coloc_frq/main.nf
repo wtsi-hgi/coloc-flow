@@ -20,6 +20,8 @@ process COLOC_FREQ_AND_SNPS {
         path('*.sig_signals.list', emit: sig_signals)
         path('*.frqx', emit: frqx)
         path("Filtered_${gwas_name}", emit: bed_file)
+        path('*all_signals.tsv',emit: sig_signals_eqtls)
+        path(GWAS,emit: GWAS)
 
 
     script:
@@ -32,9 +34,9 @@ process COLOC_FREQ_AND_SNPS {
        
         coloc_GWAS_frq.R ${GWAS} ${bfile} ${params.input_table}
         mkdir Filtered_${gwas_name}
-        ln -s ${gwas_name}.bed Filtered_${gwas_name}/Filtered_${gwas_name}.bed
-        ln -s ${gwas_name}.bim Filtered_${gwas_name}/Filtered_${gwas_name}.bim
-        ln -s ${gwas_name}.fam Filtered_${gwas_name}/Filtered_${gwas_name}.fam
+        mv ${gwas_name}.bed Filtered_${gwas_name}/Filtered_${gwas_name}.bed
+        mv ${gwas_name}.bim Filtered_${gwas_name}/Filtered_${gwas_name}.bim
+        mv ${gwas_name}.fam Filtered_${gwas_name}/Filtered_${gwas_name}.fam
         echo ${gwas_name} > Done.tmp
     """
 }

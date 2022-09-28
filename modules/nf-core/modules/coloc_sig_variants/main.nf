@@ -16,7 +16,7 @@ process COLOC_ON_SIG_VARIANTS {
         path(sig_signals)
         path(ped_file_folder)
         path(frx_file)
-        
+        path(GWAS)
 
     output:
         // path('Done.tmp')
@@ -24,10 +24,12 @@ process COLOC_ON_SIG_VARIANTS {
 
     script:
     // gwas_name = "${frx_file}".minus(".random").split(/\./)[0]
-    gwas_name ="${variant}".split("-")[1]
-    variant_name ="${variant}".split("-")[0]
+    gwas_name ="${variant}".split("--")[1]
+    eQTL_path ="${variant}".split("--")[2]
+    variant_name ="${variant}".split("--")[0]
     """
         echo ${variant_name} > Done.tmp
         echo ${gwas_name}
+        echo ${eQTL_path}
     """
 }

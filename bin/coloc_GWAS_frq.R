@@ -99,7 +99,7 @@ GWAS_name=return_list$GWAS_name
 Significant_GWAS_Signals = Full_GWAS_Sum_Stats[Full_GWAS_Sum_Stats$p_value< 5e-8]
 
 write(Full_GWAS_Sum_Stats$variant_id,ncol=1,file=paste0(GWAS_name,".snp.list"),sep = "\t")
-Significant_GWAS_Signals$gwas_name=paste(Significant_GWAS_Signals$variant_id,'--',GWAS_name,sep='')
+Significant_GWAS_Signals$gwas_name=paste(Significant_GWAS_Signals$variant_id,'--',GWAS,sep='')
 
 # Here we should loop through the input file eQTLs for the particular GWAS and replicate the table so many times
 
@@ -122,7 +122,7 @@ for (val in all_eQTLs_associated_with_this_GWAS$eQTL){
       # furthermore we should only select the variants that are on particular chromosomes for the analysis.
       Significant_GWAS_Signals_new = Significant_GWAS_Signals2[Significant_GWAS_Signals2$chromosome %in% unique(single_eqtl2$chromosome),]
       Significant_GWAS_Signals_new$gwas_name2 = paste(Significant_GWAS_Signals_new$gwas_name,'--',val,sep='')
-      Data2 = rbind(Data2, Significant_GWAS_Signals2) 
+      Data2 = rbind(Data2, Significant_GWAS_Signals_new) 
   }
 }
 

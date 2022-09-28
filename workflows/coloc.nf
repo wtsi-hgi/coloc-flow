@@ -76,13 +76,16 @@ workflow COLOC {
     // Calculate frequencies and extract number of significant GWAS hits for each input GWAS sum stats.
     COLOC_FREQ_AND_SNPS(input_gwas,params.bfile)
     // Then for each of the GWAS independent SNPs and each of the corresponding eQTLs we generate a new job - we can split this up lated on even more.
-    COLOC_FREQ_AND_SNPS.out.sig_signals.splitCsv(header: true, sep: '\t', by: 1)
-        .map { row -> row.gwas_name }
+    // COLOC_FREQ_AND_SNPS.out.sig_signals_eqtls.splitCsv(header: true, sep: '\t', by: 1)
+    //     .map { row -> tuple(row.gwas_name2.split('--')[0],row.gwas_name2.split('--')[1],row.gwas_name2.split('--')[2] )}
+    //     .set { variant_id }
+    COLOC_FREQ_AND_SNPS.out.sig_signals_eqtls.splitCsv(header: true, sep: '\t', by: 1)
+        .map { row -> row.gwas_name2}
         .set { variant_id }
-
+        
     // Have to run this on each of the eQTL files seperately. 
 
-    // COLOC_ON_SIG_VARIANTS(variant_id,COLOC_FREQ_AND_SNPS.out.sig_signals.collect(),COLOC_FREQ_AND_SNPS.out.bed_file.collect(),COLOC_FREQ_AND_SNPS.out.frqx.collect(),input_eQTL)
+    COLOC_ON_SIG_VARIANTS(variant_id,COLOC_FREQ_AND_SNPS.out.sig_signals.collect(),COLOC_FREQ_AND_SNPS.out.bed_file.collect(),COLOC_FREQ_AND_SNPS.out.frqx.collect(),COLOC_FREQ_AND_SNPS.out.GWAS.collect())
     // variant_id.view()
     // variant_id
     //   .subscribe onNext: {println "variant_id: $it"},
