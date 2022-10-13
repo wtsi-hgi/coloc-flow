@@ -4,20 +4,22 @@ GWAS = args[1] #'samplename'
 bfile = args[2] #'samplename'
 coloc_input_file = args[3]
 # GWAS = 'GCST90014122_buildGRCh37.tsv'
+gwas_significance_threshold <- 5e-8
+eqtl_significance_threshold <- 5e-5
 
 # bfile = '.'
 print(GWAS)
 print(bfile)
 
-library(biomaRt)
+# library(biomaRt)
 library(data.table)
-library(coloc)
-library(susieR)
+# library(coloc)
+# library(susieR)
 
 load_GWAS <- function(GWAS){
 
-  GWAS_ext = tail(strsplit(GWAS,split="\\.")[[1]],n=1)
-  GWAS_name = strsplit(tail(strsplit(GWAS,split="\\/")[[1]],n=1),split="\\.")[[1]][1]
+  GWAS_ext = tools::file_ext(GWAS)
+  GWAS_name = tools::file_path_sans_ext(basename(GWAS))
 
   if(GWAS_ext=='zip'){
     print('zip')
@@ -26,7 +28,7 @@ load_GWAS <- function(GWAS){
   } else if (GWAS_ext=='gz'){
     map=fread(paste('gunzip -cq ',GWAS,sep=''))
   } else{
-    map=fread(GWAS)
+    map = fread(GWAS)
   }
 
   #Gwas col rename
@@ -64,25 +66,25 @@ load_GWAS <- function(GWAS){
 
 }
 
-load_eqtl <- function(eQTL,Full_GWAS_Sum_Stats){
+load_eqtl <- function(eqtl.file, Full_GWAS_Sum_Stats){
   #### Eqtl data
-  eqtl.file=eQTL #downloaded from Zenodo
-  eqtl=fread(eqtl.file)
-  names(eqtl)=c("gene","SNP","TSS_dist","p","beta")
-  eqtl$se=abs(eqtl$beta)/sqrt(qchisq(eqtl$p,df = 1,lower.tail = F))
-  Celltype=tail(strsplit(eqtl.file,split="/")[[1]],n=1)
-  Celltype=gsub('\\.','_',Celltype)
+  eqtl = fread(eqtl.file, col.names = c("gene","SNP","TSS_dist","p","beta"))
+  eqtl$se = abs(eqtl$beta)/sqrt(qchisq(eqtl$p,df = 1,lower.tail = F))
+  Celltype = basename(eqtl.file)
+  Celltype = gsub('\\.','_',Celltype)
   single_eqtl1 = eqtl
 
   # Here we diver a bit and add the positional info to the SNPs if available.
-  single_eqtl1$ea_allele=Full_GWAS_Sum_Stats$effect_allele[match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)]
-  single_eqtl1$oth_allele=Full_GWAS_Sum_Stats$other_allele[match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)]
-  single_eqtl1$chromosome=Full_GWAS_Sum_Stats$chromosome[match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)]
-  single_eqtl1$base_pair_location=Full_GWAS_Sum_Stats$base_pair_location[match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)]
+  snp_matches <- match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)
+  single_eqtl1$ea_allele = Full_GWAS_Sum_Stats$effect_allele[snp_matches]
+  single_eqtl1$oth_allele = Full_GWAS_Sum_Stats$other_allele[snp_matches]
+  single_eqtl1$chromosome = Full_GWAS_Sum_Stats$chromosome[snp_matches]
+  single_eqtl1$base_pair_location = Full_GWAS_Sum_Stats$base_pair_location[snp_matches]
   single_eqtl1 = single_eqtl1[!is.na(single_eqtl1$ea_allele)]
 
   #eQTL col rename
-  
+
+  # FIXME dplyr::rename would be much clearer here but it need to be installed in container
   names(single_eqtl1)[names(single_eqtl1) == 'p'] <- "p_value"
   names(single_eqtl1)[names(single_eqtl1) == 'ea_allele'] <- "effect_allele"
   names(single_eqtl1)[names(single_eqtl1) == 'oth_allele'] <- "other_allele"
@@ -94,37 +96,44 @@ load_eqtl <- function(eQTL,Full_GWAS_Sum_Stats){
 }
 
 return_list = load_GWAS(GWAS)
-Full_GWAS_Sum_Stats=return_list$map
-GWAS_name=return_list$GWAS_name
-Significant_GWAS_Signals = Full_GWAS_Sum_Stats[Full_GWAS_Sum_Stats$p_value< 5e-8]
+Full_GWAS_Sum_Stats = return_list$map
+GWAS_name = return_list$GWAS_name
+Significant_GWAS_Signals = Full_GWAS_Sum_Stats[Full_GWAS_Sum_Stats$p_value < gwas_significance_threshold]
 
-write(Full_GWAS_Sum_Stats$variant_id,ncol=1,file=paste0(GWAS_name,".snp.list"),sep = "\t")
-Significant_GWAS_Signals$gwas_name=paste(Significant_GWAS_Signals$variant_id,'--',GWAS,sep='')
+writeLines(Full_GWAS_Sum_Stats$variant_id, con=paste0(GWAS_name, ".snp.list"))
+Significant_GWAS_Signals$gwas_name = paste(Significant_GWAS_Signals$variant_id, GWAS, sep='--')
 
 # Here we should loop through the input file eQTLs for the particular GWAS and replicate the table so many times
 
-write.table(Significant_GWAS_Signals,file=paste0(GWAS_name,".sig_signals.list"),sep = "\t",quote = FALSE,row.names = FALSE)
+fwrite(Significant_GWAS_Signals, file=paste0(GWAS_name,".sig_signals.list"), sep = "\t", quote = FALSE, row.names = FALSE)
 # GWAS_name='GCST90014122_buildGRCh37'
-Significant_GWAS_Signals2 = read.table(paste0(GWAS_name,".sig_signals.list"),sep = "\t",header=TRUE)
-coloc_input = read.table(coloc_input_file,header=TRUE)
-all_eQTLs_associated_with_this_GWAS = coloc_input[coloc_input$GWAS  %like% GWAS_name,]
-Data2 = data.table()
+Significant_GWAS_Signals2 = copy(Significant_GWAS_Signals)
+coloc_input = fread(coloc_input_file, header=TRUE)
+all_eQTLs_associated_with_this_GWAS = coloc_input[coloc_input$GWAS  %like% GWAS_name, ]
 
-for (val in all_eQTLs_associated_with_this_GWAS$eQTL){
-  # Here we redune the computational testing burden of spining up and reading in same file multiple times by prereading the files here and seeing whether there is a signal in the ceirtain file on the particular chromosomes where GWAS signal is present.
+data_list <- lapply(all_eQTLs_associated_with_this_GWAS$eQTL, function(val){
+  # Here we reduce the computational testing burden of spining up and reading in same file multiple times
+  # by prereading the files here and seeing whether there is a signal in the ceirtain file on the particular chromosomes where GWAS signal is present.
   single_eqtl1 = load_eqtl(val,Full_GWAS_Sum_Stats)
-  single_eqtl2 = single_eqtl1[single_eqtl1$p_value<5e-5]
+  single_eqtl2 = single_eqtl1[single_eqtl1$p_value < eqtl_significance_threshold]
   uq1 = unique(single_eqtl2$chromosome)
   un2 = unique(Significant_GWAS_Signals2$chromosome)
-  int1 = intersect(un2,uq1)
+  int1 = intersect(un2, uq1)
   if(length(int1)>0){
       # We only bind the eQTL file if both contain a signal on a specific chromosome.
       # furthermore we should only select the variants that are on particular chromosomes for the analysis.
-      Significant_GWAS_Signals_new = Significant_GWAS_Signals2[Significant_GWAS_Signals2$chromosome %in% unique(single_eqtl2$chromosome),]
-      Significant_GWAS_Signals_new$gwas_name2 = paste(Significant_GWAS_Signals_new$gwas_name,'--',val,sep='')
-      Data2 = rbind(Data2, Significant_GWAS_Signals_new) 
+      Significant_GWAS_Signals_new = Significant_GWAS_Signals2[Significant_GWAS_Signals2$chromosome %in% uq1, ]
+      Significant_GWAS_Signals_new$gwas_name2 = paste(Significant_GWAS_Signals_new$gwas_name, val, sep='--')
+  } else {
+      Significant_GWAS_Signals_new <- data.table()
   }
-}
+  return(Significant_GWAS_Signals_new)
+})
 
-write.table(Data2,file=paste0(GWAS_name,"_all_signals.tsv"),sep = "\t",quote = FALSE,row.names = FALSE)
-system(paste("plink --bfile ",bfile,"/plink_genotypes --extract ",GWAS_name,".snp.list --maf 0.0001 --make-bed --freqx --out ",GWAS_name,sep=''))
+Data2 <- rbindlist(data_list)
+
+fwrite(Data2, file=paste0(GWAS_name,"_all_signals.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
+
+plink_cmd <- paste0("plink --bfile ", bfile, "/plink_genotypes --maf 0.0001 --make-bed --freqx --out ", GWAS_name)
+rc <- system(plink_cmd)
+stopifnot(rc == 0L)

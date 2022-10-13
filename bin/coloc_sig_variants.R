@@ -6,8 +6,8 @@ library(susieR)
 
 load_GWAS <- function(GWAS){
 
-  GWAS_ext = tail(strsplit(GWAS,split="\\.")[[1]],n=1)
-  GWAS_name = strsplit(tail(strsplit(GWAS,split="\\/")[[1]],n=1),split="\\.")[[1]][1]
+  GWAS_ext = tools::file_ext(GWAS)
+  GWAS_name = tools::file_path_sans_ext(basename(GWAS))
 
   if(GWAS_ext=='zip'){
     print('zip')
@@ -16,7 +16,7 @@ load_GWAS <- function(GWAS){
   } else if (GWAS_ext=='gz'){
     map=fread(paste('gunzip -cq ',GWAS,sep=''))
   } else{
-    map=fread(GWAS)
+    map = fread(GWAS)
   }
 
   #Gwas col rename
@@ -54,25 +54,25 @@ load_GWAS <- function(GWAS){
 
 }
 
-load_eqtl <- function(eQTL,Full_GWAS_Sum_Stats){
+load_eqtl <- function(eqtl.file, Full_GWAS_Sum_Stats){
   #### Eqtl data
-  eqtl.file=eQTL #downloaded from Zenodo
-  eqtl=fread(eqtl.file)
-  names(eqtl)=c("gene","SNP","TSS_dist","p","beta")
-  eqtl$se=abs(eqtl$beta)/sqrt(qchisq(eqtl$p,df = 1,lower.tail = F))
-  Celltype=tail(strsplit(eqtl.file,split="/")[[1]],n=1)
-  Celltype=gsub('\\.','_',Celltype)
+  eqtl = fread(eqtl.file, col.names = c("gene","SNP","TSS_dist","p","beta"))
+  eqtl$se = abs(eqtl$beta)/sqrt(qchisq(eqtl$p,df = 1,lower.tail = F))
+  Celltype = basename(eqtl.file)
+  Celltype = gsub('\\.','_',Celltype)
   single_eqtl1 = eqtl
 
   # Here we diver a bit and add the positional info to the SNPs if available.
-  single_eqtl1$ea_allele=Full_GWAS_Sum_Stats$effect_allele[match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)]
-  single_eqtl1$oth_allele=Full_GWAS_Sum_Stats$other_allele[match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)]
-  single_eqtl1$chromosome=Full_GWAS_Sum_Stats$chromosome[match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)]
-  single_eqtl1$base_pair_location=Full_GWAS_Sum_Stats$base_pair_location[match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)]
+  snp_matches <- match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)
+  single_eqtl1$ea_allele = Full_GWAS_Sum_Stats$effect_allele[snp_matches]
+  single_eqtl1$oth_allele = Full_GWAS_Sum_Stats$other_allele[snp_matches]
+  single_eqtl1$chromosome = Full_GWAS_Sum_Stats$chromosome[snp_matches]
+  single_eqtl1$base_pair_location = Full_GWAS_Sum_Stats$base_pair_location[snp_matches]
   single_eqtl1 = single_eqtl1[!is.na(single_eqtl1$ea_allele)]
 
   #eQTL col rename
-  
+
+  # FIXME dplyr::rename would be much clearer here but it need to be installed in container
   names(single_eqtl1)[names(single_eqtl1) == 'p'] <- "p_value"
   names(single_eqtl1)[names(single_eqtl1) == 'ea_allele'] <- "effect_allele"
   names(single_eqtl1)[names(single_eqtl1) == 'oth_allele'] <- "other_allele"
@@ -82,6 +82,7 @@ load_eqtl <- function(eQTL,Full_GWAS_Sum_Stats){
   names(single_eqtl1)[names(single_eqtl1) == 'se'] <- "standard_error"
   return (single_eqtl1)
 }
+
 # GWAS_matched_SNPS_with_eQTL=outcome
 make_cojo_df <- function(GWAS_matched_SNPS_with_eQTL){
           GWAS_matched_SNPS_with_eQTL$FREQ=freqs$FreqA1[match(GWAS_matched_SNPS_with_eQTL$variant_id,freqs$SNP)]
@@ -90,6 +91,13 @@ make_cojo_df <- function(GWAS_matched_SNPS_with_eQTL){
           # GWAS_matched_SNPS_with_eQTL$se=sqrt(GWAS_matched_SNPS_with_eQTL$varbeta)
           Cojo_Dataframe=GWAS_matched_SNPS_with_eQTL[,c("variant_id","effect_allele","other_allele","FREQ","beta","standard_error","p_value","N")]
           names(Cojo_Dataframe)=c("SNP" , "A1" ,  "A2"  , "freq", "b"  ,  "se" ,  "p" ,   "N")
+          # from https://yanglab.westlake.edu.cn/software/gcta/#COJO
+          # A1 -- the effect allele
+          # A2 -- the other allele
+          # freq -- frequency of the effect allele
+          # b -- effect size
+          # p -- p-value
+          # N -- sample size
           Cojo_Dataframe=Cojo_Dataframe[!is.na(Cojo_Dataframe$freq)]# <- 0
           Cojo_Dataframe=Cojo_Dataframe[!Cojo_Dataframe$N <10]# <- 10 #Cojo doesnt like sample sizes smaller than 10
           Cojo_Dataframe = transform(Cojo_Dataframe, freq = as.numeric(freq), N = as.numeric(N),b = as.numeric(b))
@@ -103,15 +111,15 @@ make_cojo_df <- function(GWAS_matched_SNPS_with_eQTL){
 eQTL="/lustre/scratch123/hgi/projects/bhf_finemap/summary_stats/eQTLs/all/Pericytes.17.gz"
 GWAS="GWAS_UKB_logWMHnorm.txt"
 variant="rs4588035"
-# Takes 
+# Takes
 #1 frq file
 #2 variant name
-GWAS_name = strsplit(tail(strsplit(GWAS,split="\\/")[[1]],n=1),split="\\.")[[1]][1]
-eQTL_name = strsplit(tail(strsplit(eQTL,split="\\/")[[1]],n=1),split="\\.")[[1]]
-eQTL_name = paste(eQTL_name[-length(eQTL_name)],collapse = '_')
+GWAS_name = tools::file_path_sans_ext(basename(GWAS))
+eQTL_name = tools::file_path_sans_ext(basename(eQTL))
+eQTL_name = gsub("\\.", "_", eQTL_name)
 
-freqs=fread(paste0(GWAS_name,".frqx"))
-freqs$FreqA1=(freqs$'C(HOM A1)'*2+freqs$'C(HET)')/(2*(rowSums(freqs[,c("C(HOM A1)", "C(HET)", "C(HOM A2)")])))   
+freqs = fread(paste0(GWAS_name,".frqx"))
+freqs$FreqA1 = (freqs$'C(HOM A1)'*2+freqs$'C(HET)')/(2*(rowSums(freqs[,c("C(HOM A1)", "C(HET)", "C(HOM A2)")])))
 
 Significant_GWAS_Signals = read.table(paste(GWAS_name,'.sig_signals.list',sep=''),header=TRUE)
 return_list = load_GWAS(GWAS)
@@ -133,10 +141,23 @@ range_max = base_pair_location+1000000
 variants_of_interest = Full_GWAS_Sum_Stats[Full_GWAS_Sum_Stats$chromosome==chromosome1]
 variants_of_interest = variants_of_interest[variants_of_interest$base_pair_location>range_min$base_pair_location & variants_of_interest$base_pair_location<range_max$base_pair_location]
 outcome = variants_of_interest
+
 Cojo_Dataframe = make_cojo_df(outcome)
 write(Cojo_Dataframe$SNP,ncol=1,file=paste0(variant_id,'_',GWAS_name,".snp.list"))
-write.table(Cojo_Dataframe,file=paste0(variant_id,'_',GWAS_name,"_sum.txt"),row.names=F,quote=F,sep="\t")
-system(paste("gcta --bfile Filtered_",GWAS_name,"/Filtered_",GWAS_name," --cojo-p 1e-4 --extract ",variant_id,'_',GWAS_name,".snp.list --cojo-file ",variant_id,'_',GWAS_name,"_sum.txt --cojo-slct --out ",variant_id,'_',GWAS_name,"_step1", sep=""))
+
+cojo_filename <- paste0(variant_id,'_',GWAS_name,"_sum.txt")
+fwrite(Cojo_Dataframe, file=cojo_filename, row.names=F, quote=F, sep="\t")
+
+gcta_cmd <- c(
+    'gcta',
+    '--bfile', paste0("Filtered_", GWAS_name, "/Filtered_", GWAS_name),
+    '--cojo-p', '1e-4',
+    '--extract', paste0(variant_id,'_',GWAS_name,".snp.list"),
+    '--cojo-file', cojo_filename,
+    '--cojo-slct',
+    '--out', paste0(variant_id,'_',GWAS_name,"_step1")
+)
+system(paste(gcta_cmd, collapse=" "))
 independent_SNPs=fread(paste0(variant_id,'_',GWAS_name,"_step1.jma.cojo"))
 
 for( i_GWAS in 1:nrow(independent_SNPs)){
@@ -146,12 +167,12 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
     conditioned_dataset=fread(paste0(variant_id,'_',GWAS_name,"_step2.cma.cojo"))
     conditioned_dataset_condSNP=fread(paste0(variant_id,'_',GWAS_name,"_step1.jma.cojo"))
     conditioned_dataset_condSNP=conditioned_dataset_condSNP[conditioned_dataset_condSNP$SNP == GWAS_signal]
-            
+
     conditioned_dataset_condSNP = conditioned_dataset_condSNP[, !c("LD_r","pJ","bJ","bJ_se")]
     conditioned_dataset_condSNP$pC = conditioned_dataset_condSNP$p
     conditioned_dataset_condSNP$bC = conditioned_dataset_condSNP$b
     conditioned_dataset_condSNP$bC_se = conditioned_dataset_condSNP$se
-    conditioned_dataset = rbind(conditioned_dataset, conditioned_dataset_condSNP) 
+    conditioned_dataset = rbind(conditioned_dataset, conditioned_dataset_condSNP)
     # some SNP(s) have large difference of allele frequency between the GWAS summary data and the reference sample, hence are removed.
     D1=conditioned_dataset[,c("SNP","Chr","bp","bC","bC_se","n","pC","freq")]
     names(D1)=c("snp","chr","position","beta","varbeta","N","pvalues","MAF")
@@ -163,7 +184,7 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
     all_unique_eQTL_signals_in_this_GWAS_range = unique(single_eqtl_all$gene)
 
     for (qtl1 in all_unique_eQTL_signals_in_this_GWAS_range){
-        single_eqtl=eQTL_singals_on_GWAS_SNP_chtomosome[eQTL_singals_on_GWAS_SNP_chtomosome$gene==qtl1,] 
+        single_eqtl=eQTL_singals_on_GWAS_SNP_chtomosome[eQTL_singals_on_GWAS_SNP_chtomosome$gene==qtl1,]
         single_eqtl2 = single_eqtl
         rownames(single_eqtl2) <- single_eqtl2$SNP
         single_eqtl2$N = 200   #Check if there is an actual n number.
@@ -175,21 +196,21 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
             system(paste("gcta --bfile ",GWAS_name," --cojo-p 1e-4 --extract ",variant_id,"_",qtl1,"_",eQTL_name,"_eqtl.snp.list --cojo-file ",variant_id,"_",qtl1,"_",eQTL_name,"_eqtl_sum.txt --cojo-slct --out ",variant_id,"_",qtl1,"_",eQTL_name,"eqtl_step1", sep=""))
             independent_SNPs_eQTL=fread(paste0(variant_id,"_",qtl1,"_",eQTL_name,"eqtl_step1.jma.cojo"))
             for( i_eQTL in 1:nrow(independent_SNPs_eQTL)){
-                print(i_eQTL)     
+                print(i_eQTL)
                 independent_eqtl_SNP_to_contition_on = independent_SNPs_eQTL[i_eQTL]$SNP
                 write(independent_eqtl_SNP_to_contition_on,ncol=1,file=paste0(independent_eqtl_SNP_to_contition_on,"_eqtl_independent.snp"))
                 system(paste("gcta --bfile ",GWAS_name," --cojo-p 1e-4 --extract ",variant_id,"_",qtl1,"_",eQTL_name,"_eqtl.snp.list --cojo-file ",variant_id,"_",qtl1,"_",eQTL_name,"_eqtl_sum.txt --cojo-cond ",independent_eqtl_SNP_to_contition_on,"_eqtl_independent.snp --out ",variant_id,"_",qtl1,"_",eQTL_name,"_",independent_eqtl_SNP_to_contition_on,"eqtl_step2", sep=""))
-                
+
                 conditioned_dataset_eQTL=fread(paste0(variant_id,"_",qtl1,"_",eQTL_name,"_",independent_eqtl_SNP_to_contition_on,"eqtl_step2.cma.cojo"))
-                # Conditioned dataset doesnt nontain the SNP that we condition the data to, this needs to be included. 
+                # Conditioned dataset doesnt nontain the SNP that we condition the data to, this needs to be included.
                 conditioned_dataset_eQTL_condSNP=fread(paste0(variant_id,"_",qtl1,"_",eQTL_name,"eqtl_step1.jma.cojo"))
                 conditioned_dataset_eQTL_condSNP=conditioned_dataset_eQTL_condSNP[conditioned_dataset_eQTL_condSNP$SNP == independent_eqtl_SNP_to_contition_on]
                 conditioned_dataset_eQTL_condSNP = conditioned_dataset_eQTL_condSNP[, !c("LD_r","pJ","bJ","bJ_se")]
                 conditioned_dataset_eQTL_condSNP$pC = conditioned_dataset_eQTL_condSNP$p
                 conditioned_dataset_eQTL_condSNP$bC = conditioned_dataset_eQTL_condSNP$b
                 conditioned_dataset_eQTL_condSNP$bC_se = conditioned_dataset_eQTL_condSNP$se
-                conditioned_dataset_eQTL = rbind(conditioned_dataset_eQTL, conditioned_dataset_eQTL_condSNP) 
-                
+                conditioned_dataset_eQTL = rbind(conditioned_dataset_eQTL, conditioned_dataset_eQTL_condSNP)
+
                 D2=conditioned_dataset_eQTL[,c("SNP","Chr","bp","bC","bC_se","n","pC","freq")]
                 names(D2)=c("snp","chr","position","beta","varbeta","N","pvalues","MAF")
                 D2$type="quant"
@@ -231,13 +252,7 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
                     dev.off()
                     }
                 }
-            }              
-
+            }
         }
-
-                     
     }
-                
-
-
 }
