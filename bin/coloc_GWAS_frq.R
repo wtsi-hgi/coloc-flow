@@ -1,99 +1,17 @@
 #!/usr/bin/env Rscript
 args = commandArgs(trailingOnly=TRUE)
-GWAS = args[1] #'samplename'
-bfile = args[2] #'samplename'
+GWAS = args[1]
+bfile = args[2]
 coloc_input_file = args[3]
 # GWAS = 'GCST90014122_buildGRCh37.tsv'
 gwas_significance_threshold <- 5e-8
 eqtl_significance_threshold <- 5e-5
 
-# bfile = '.'
 print(GWAS)
 print(bfile)
 
-# library(biomaRt)
 library(data.table)
-# library(coloc)
-# library(susieR)
-
-load_GWAS <- function(GWAS){
-
-  GWAS_ext = tools::file_ext(GWAS)
-  GWAS_name = tools::file_path_sans_ext(basename(GWAS))
-
-  if(GWAS_ext=='zip'){
-    print('zip')
-    map=fread(paste('unzip -p ',GWAS,sep=''))
-
-  } else if (GWAS_ext=='gz'){
-    map=fread(paste('gunzip -cq ',GWAS,sep=''))
-  } else{
-    map = fread(GWAS)
-  }
-
-  #Gwas col rename
-  names(map)[names(map) == 'P'] <- "p_value"
-  names(map)[names(map) == 'REF'] <- "effect_allele"
-  names(map)[names(map) == 'ALT'] <- "other_allele"
-  names(map)[names(map) == 'CHROM'] <- "chromosome"
-  names(map)[names(map) == 'ID'] <- "variant_id"
-  names(map)[names(map) == 'POS'] <- "base_pair_location"
-  names(map)[names(map) == 'BETA'] <- "beta"
-  names(map)[names(map) == 'SE'] <- "standard_error"
-
-  names(map)[names(map) == 'P-value'] <- "p_value"
-  names(map)[names(map) == 'Allele1'] <- "effect_allele"
-  names(map)[names(map) == 'Allele2'] <- "other_allele"
-  names(map)[names(map) == 'CHR'] <- "chromosome"
-  names(map)[names(map) == 'MarkerName'] <- "variant_id"
-  names(map)[names(map) == 'pos'] <- "base_pair_location"
-  names(map)[names(map) == 'Effect'] <- "beta"
-  names(map)[names(map) == 'StdErr'] <- "standard_error"
-
-  names(map)[names(map) == 'P-value'] <- "p_value"
-  names(map)[names(map) == 'Allele1'] <- "effect_allele"
-  names(map)[names(map) == 'Allele2'] <- "other_allele"
-  names(map)[names(map) == 'CHR'] <- "chromosome"
-  names(map)[names(map) == 'MarkerName'] <- "variant_id"
-  names(map)[names(map) == 'pos'] <- "base_pair_location"
-  names(map)[names(map) == 'Effect'] <- "beta"
-  names(map)[names(map) == 'StdErr'] <- "standard_error"
-  names(map)[names(map) == 'NStudies'] <- "N"
-
-
-  return_list <- list("map" = map, "GWAS_name" = GWAS_name)
-  return(return_list)
-
-}
-
-load_eqtl <- function(eqtl.file, Full_GWAS_Sum_Stats){
-  #### Eqtl data
-  eqtl = fread(eqtl.file, col.names = c("gene","SNP","TSS_dist","p","beta"))
-  eqtl$se = abs(eqtl$beta)/sqrt(qchisq(eqtl$p,df = 1,lower.tail = F))
-  Celltype = basename(eqtl.file)
-  Celltype = gsub('\\.','_',Celltype)
-  single_eqtl1 = eqtl
-
-  # Here we diver a bit and add the positional info to the SNPs if available.
-  snp_matches <- match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)
-  single_eqtl1$ea_allele = Full_GWAS_Sum_Stats$effect_allele[snp_matches]
-  single_eqtl1$oth_allele = Full_GWAS_Sum_Stats$other_allele[snp_matches]
-  single_eqtl1$chromosome = Full_GWAS_Sum_Stats$chromosome[snp_matches]
-  single_eqtl1$base_pair_location = Full_GWAS_Sum_Stats$base_pair_location[snp_matches]
-  single_eqtl1 = single_eqtl1[!is.na(single_eqtl1$ea_allele)]
-
-  #eQTL col rename
-
-  # FIXME dplyr::rename would be much clearer here but it need to be installed in container
-  names(single_eqtl1)[names(single_eqtl1) == 'p'] <- "p_value"
-  names(single_eqtl1)[names(single_eqtl1) == 'ea_allele'] <- "effect_allele"
-  names(single_eqtl1)[names(single_eqtl1) == 'oth_allele'] <- "other_allele"
-  names(single_eqtl1)[names(single_eqtl1) == 'SNP'] <- "variant_id"
-  names(single_eqtl1)[names(single_eqtl1) == 'base_pair_location'] <- "base_pair_location"
-  names(single_eqtl1)[names(single_eqtl1) == 'beta'] <- "beta"
-  names(single_eqtl1)[names(single_eqtl1) == 'se'] <- "standard_error"
-  return (single_eqtl1)
-}
+source('dataIO.R')
 
 return_list = load_GWAS(GWAS)
 Full_GWAS_Sum_Stats = return_list$map
@@ -109,7 +27,7 @@ fwrite(Significant_GWAS_Signals, file=paste0(GWAS_name,".sig_signals.list"), sep
 # GWAS_name='GCST90014122_buildGRCh37'
 Significant_GWAS_Signals2 = copy(Significant_GWAS_Signals)
 coloc_input = fread(coloc_input_file, header=TRUE)
-all_eQTLs_associated_with_this_GWAS = coloc_input[coloc_input$GWAS  %like% GWAS_name, ]
+all_eQTLs_associated_with_this_GWAS = coloc_input[coloc_input$GWAS %like% GWAS_name, ]
 
 data_list <- lapply(all_eQTLs_associated_with_this_GWAS$eQTL, function(val){
   # Here we reduce the computational testing burden of spining up and reading in same file multiple times

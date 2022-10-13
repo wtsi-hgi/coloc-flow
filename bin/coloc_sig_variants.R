@@ -4,105 +4,8 @@ library(data.table)
 library(coloc)
 library(susieR)
 
-load_GWAS <- function(GWAS){
-
-  GWAS_ext = tools::file_ext(GWAS)
-  GWAS_name = tools::file_path_sans_ext(basename(GWAS))
-
-  if(GWAS_ext=='zip'){
-    print('zip')
-    map=fread(paste('unzip -p ',GWAS,sep=''))
-
-  } else if (GWAS_ext=='gz'){
-    map=fread(paste('gunzip -cq ',GWAS,sep=''))
-  } else{
-    map = fread(GWAS)
-  }
-
-  #Gwas col rename
-  names(map)[names(map) == 'P'] <- "p_value"
-  names(map)[names(map) == 'REF'] <- "effect_allele"
-  names(map)[names(map) == 'ALT'] <- "other_allele"
-  names(map)[names(map) == 'CHROM'] <- "chromosome"
-  names(map)[names(map) == 'ID'] <- "variant_id"
-  names(map)[names(map) == 'POS'] <- "base_pair_location"
-  names(map)[names(map) == 'BETA'] <- "beta"
-  names(map)[names(map) == 'SE'] <- "standard_error"
-
-  names(map)[names(map) == 'P-value'] <- "p_value"
-  names(map)[names(map) == 'Allele1'] <- "effect_allele"
-  names(map)[names(map) == 'Allele2'] <- "other_allele"
-  names(map)[names(map) == 'CHR'] <- "chromosome"
-  names(map)[names(map) == 'MarkerName'] <- "variant_id"
-  names(map)[names(map) == 'pos'] <- "base_pair_location"
-  names(map)[names(map) == 'Effect'] <- "beta"
-  names(map)[names(map) == 'StdErr'] <- "standard_error"
-
-  names(map)[names(map) == 'P-value'] <- "p_value"
-  names(map)[names(map) == 'Allele1'] <- "effect_allele"
-  names(map)[names(map) == 'Allele2'] <- "other_allele"
-  names(map)[names(map) == 'CHR'] <- "chromosome"
-  names(map)[names(map) == 'MarkerName'] <- "variant_id"
-  names(map)[names(map) == 'pos'] <- "base_pair_location"
-  names(map)[names(map) == 'Effect'] <- "beta"
-  names(map)[names(map) == 'StdErr'] <- "standard_error"
-  names(map)[names(map) == 'NStudies'] <- "N"
-
-
-  return_list <- list("map" = map, "GWAS_name" = GWAS_name)
-  return(return_list)
-
-}
-
-load_eqtl <- function(eqtl.file, Full_GWAS_Sum_Stats){
-  #### Eqtl data
-  eqtl = fread(eqtl.file, col.names = c("gene","SNP","TSS_dist","p","beta"))
-  eqtl$se = abs(eqtl$beta)/sqrt(qchisq(eqtl$p,df = 1,lower.tail = F))
-  Celltype = basename(eqtl.file)
-  Celltype = gsub('\\.','_',Celltype)
-  single_eqtl1 = eqtl
-
-  # Here we diver a bit and add the positional info to the SNPs if available.
-  snp_matches <- match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)
-  single_eqtl1$ea_allele = Full_GWAS_Sum_Stats$effect_allele[snp_matches]
-  single_eqtl1$oth_allele = Full_GWAS_Sum_Stats$other_allele[snp_matches]
-  single_eqtl1$chromosome = Full_GWAS_Sum_Stats$chromosome[snp_matches]
-  single_eqtl1$base_pair_location = Full_GWAS_Sum_Stats$base_pair_location[snp_matches]
-  single_eqtl1 = single_eqtl1[!is.na(single_eqtl1$ea_allele)]
-
-  #eQTL col rename
-
-  # FIXME dplyr::rename would be much clearer here but it need to be installed in container
-  names(single_eqtl1)[names(single_eqtl1) == 'p'] <- "p_value"
-  names(single_eqtl1)[names(single_eqtl1) == 'ea_allele'] <- "effect_allele"
-  names(single_eqtl1)[names(single_eqtl1) == 'oth_allele'] <- "other_allele"
-  names(single_eqtl1)[names(single_eqtl1) == 'SNP'] <- "variant_id"
-  names(single_eqtl1)[names(single_eqtl1) == 'base_pair_location'] <- "base_pair_location"
-  names(single_eqtl1)[names(single_eqtl1) == 'beta'] <- "beta"
-  names(single_eqtl1)[names(single_eqtl1) == 'se'] <- "standard_error"
-  return (single_eqtl1)
-}
-
-# GWAS_matched_SNPS_with_eQTL=outcome
-make_cojo_df <- function(GWAS_matched_SNPS_with_eQTL){
-          GWAS_matched_SNPS_with_eQTL$FREQ=freqs$FreqA1[match(GWAS_matched_SNPS_with_eQTL$variant_id,freqs$SNP)]
-          idx=which(GWAS_matched_SNPS_with_eQTL$effect_allele!=freqs$effect_allele)
-          GWAS_matched_SNPS_with_eQTL$FREQ[idx]=1-GWAS_matched_SNPS_with_eQTL$FREQ[idx]
-          # GWAS_matched_SNPS_with_eQTL$se=sqrt(GWAS_matched_SNPS_with_eQTL$varbeta)
-          Cojo_Dataframe=GWAS_matched_SNPS_with_eQTL[,c("variant_id","effect_allele","other_allele","FREQ","beta","standard_error","p_value","N")]
-          names(Cojo_Dataframe)=c("SNP" , "A1" ,  "A2"  , "freq", "b"  ,  "se" ,  "p" ,   "N")
-          # from https://yanglab.westlake.edu.cn/software/gcta/#COJO
-          # A1 -- the effect allele
-          # A2 -- the other allele
-          # freq -- frequency of the effect allele
-          # b -- effect size
-          # p -- p-value
-          # N -- sample size
-          Cojo_Dataframe=Cojo_Dataframe[!is.na(Cojo_Dataframe$freq)]# <- 0
-          Cojo_Dataframe=Cojo_Dataframe[!Cojo_Dataframe$N <10]# <- 10 #Cojo doesnt like sample sizes smaller than 10
-          Cojo_Dataframe = transform(Cojo_Dataframe, freq = as.numeric(freq), N = as.numeric(N),b = as.numeric(b))
-    return (Cojo_Dataframe)
-}
+source('dataIO.R')
+source('cojo.R')
 
 # args = commandArgs(trailingOnly=TRUE)
 # eQTL = args[1] #'samplename'
@@ -131,34 +34,36 @@ dataset.list$results=list()
 coloc_results=c()
 
 row1 = Significant_GWAS_Signals[Significant_GWAS_Signals$variant_id == variant,]
-base_pair_location <- row1["base_pair_location"]
-variant_id <- row1["variant_id"]$variant_id
-chromosome1 <- row1["chromosome"]$chromosome
-print(paste('Running GWAS variant ',variant_id))
+base_pair_location <- row1[["base_pair_location"]]
+variant_id <- row1[["variant_id"]]
+chromosome1 <- row1[["chromosome"]]
+print(paste('Running GWAS variant', variant_id))
 
-range_min = base_pair_location-1000000
-range_max = base_pair_location+1000000
-variants_of_interest = Full_GWAS_Sum_Stats[Full_GWAS_Sum_Stats$chromosome==chromosome1]
-variants_of_interest = variants_of_interest[variants_of_interest$base_pair_location>range_min$base_pair_location & variants_of_interest$base_pair_location<range_max$base_pair_location]
-outcome = variants_of_interest
+range_min <- base_pair_location - 1000000
+range_max <- base_pair_location + 1000000
+variants_of_interest <- dplyr::filter(Full_GWAS_Sum_Stats,
+    chromosome = chromosome1,
+    base_pair_location > range_min,
+    base_pair_location < range_max
+)
 
-Cojo_Dataframe = make_cojo_df(outcome)
-write(Cojo_Dataframe$SNP,ncol=1,file=paste0(variant_id,'_',GWAS_name,".snp.list"))
+# GWAS_matched_SNPS_with_eQTL=variants_of_interest
+Cojo_Dataframe <- make_cojo_df(variants_of_interest)
 
-cojo_filename <- paste0(variant_id,'_',GWAS_name,"_sum.txt")
+marker_filename <- paste0(variant_id, '_', GWAS_name, ".snp.list")
+writeLines(Cojo_Dataframe$SNP, con=marker_filename)
+
+cojo_filename <- paste0(variant_id, '_', GWAS_name, "_sum.txt")
 fwrite(Cojo_Dataframe, file=cojo_filename, row.names=F, quote=F, sep="\t")
 
-gcta_cmd <- c(
-    'gcta',
-    '--bfile', paste0("Filtered_", GWAS_name, "/Filtered_", GWAS_name),
-    '--cojo-p', '1e-4',
-    '--extract', paste0(variant_id,'_',GWAS_name,".snp.list"),
-    '--cojo-file', cojo_filename,
-    '--cojo-slct',
-    '--out', paste0(variant_id,'_',GWAS_name,"_step1")
+cojo_out <- run_gcta(
+    bfile = paste0("Filtered_", GWAS_name, "/Filtered_", GWAS_name),
+    marker_list = marker_filename,
+    summary_stat = cojo_filename,
+    out_prefix = paste0(variant_id, '_', GWAS_name,"_step1")
 )
-system(paste(gcta_cmd, collapse=" "))
-independent_SNPs=fread(paste0(variant_id,'_',GWAS_name,"_step1.jma.cojo"))
+
+independent_SNPs = fread(cojo_out)
 
 for( i_GWAS in 1:nrow(independent_SNPs)){
     GWAS_signal = independent_SNPs[i_GWAS]$SNP
