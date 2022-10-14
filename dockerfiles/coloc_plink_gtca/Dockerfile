@@ -4,7 +4,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install --yes -y --no-install-recommends dirmngr apt-transport-https ca-certificates software-properties-common gnupg2 \
-    build-essential curl git \ 
+    build-essential curl git \
     g++ gcc gfortran make autoconf automake libtool \
     zlib1g-dev liblzma-dev libbz2-dev lbzip2 libgsl-dev \
     libblas-dev libx11-dev libxml2 libxml2-dev \
@@ -27,19 +27,18 @@ RUN conda config --set always_yes yes --set changeps1 no && \
     rm ${HOME}/tmp2/environment.yml
 WORKDIR ${HOME}/tmp2
 RUN which R
-RUN R -e 'install.packages("remotes", repos="https://cloud.r-project.org")' 
-RUN R -e 'remotes::install_github("mrcieu/ieugwasr")' 
+RUN R -e 'install.packages(c("remotes", "R.utils", "dplyr"), repos="https://cloud.r-project.org")'
+RUN R -e 'remotes::install_github("mrcieu/ieugwasr")'
 RUN R -e 'install.packages("BiocManager", repos="https://cloud.r-project.org")'
 RUN R -e 'remotes::install_github("chr1swallace/coloc@main",build_vignettes=FALSE)'
 RUN R -e 'BiocManager::install("biomaRt")'
-RUN R -e 'install.packages("R.utils", repos="https://cloud.r-project.org")'
 RUN which conda
 # SHELL ["conda", "run", "-n", "container_user", "/bin/bash", "-c"]
 SHELL ["conda", "run", "-n", "root", "/bin/bash", "-c"]
 RUN conda install -c bioconda plink
 RUN conda install -c bioconda gcta
 RUN conda install -c conda-forge r-r.utils
-RUN conda install -c conda-forge unzip 
+RUN conda install -c conda-forge unzip
 RUN which gcta64
 RUN which unzip
 RUN which gzip

@@ -41,11 +41,12 @@ load_GWAS <- function(GWAS){
     'SE' = "standard_error",
     'StdErr' = "standard_error",
 
-    'NStudies' = "N",
+    # 'NStudies' = "N",
+    'OBS_CT' = "N"
   )
 
   #Gwas col rename
-  table_rules <- renaming_rules[colnames(map)]
+  table_rules <- renaming_rules[intersect(names(renaming_rules), colnames(map))]
   map <- dplyr::rename(map, !!!setNames(names(table_rules), nm=table_rules))
 
   return_list <- list("map" = map, "GWAS_name" = GWAS_name)
@@ -78,4 +79,23 @@ load_eqtl <- function(eqtl.file, Full_GWAS_Sum_Stats){
       standard_error = se
   )
   return (single_eqtl1)
+}
+
+# reads plink's frq(x) file
+read_freqs <- function (filename){
+    ext <- tools::file_ext(filename)
+    stopifnot(ext %in% c('frq', 'frqx'))
+
+    freqs <- fread(filename)
+    if(ext == 'frq'){
+        freqs <- dplyr::rename(freqs, FreqA1 = MAF, N = NCHROBS)
+        freqs$N <- freqs$N/2L
+    }
+
+    if(ext == 'frqx'){
+        freqs$N <- rowSums(freqs[, c("C(HOM A1)", "C(HET)", "C(HOM A2)")])
+        freqs$FreqA1 <- (freqs$'C(HOM A1)'*2 + freqs$'C(HET)') / (2*freqs$N)
+    }
+
+    return(freqs)
 }

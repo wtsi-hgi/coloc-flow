@@ -1,27 +1,31 @@
+# https://yanglab.westlake.edu.cn/software/gcta/#COJO
+requireNamespace(dplyr)
 
-make_cojo_df <- function(GWAS_matched_SNPS_with_eQTL){
-          GWAS_matched_SNPS_with_eQTL$FREQ=freqs$FreqA1[match(GWAS_matched_SNPS_with_eQTL$variant_id,freqs$SNP)]
-          idx=which(GWAS_matched_SNPS_with_eQTL$effect_allele!=freqs$effect_allele)
-          GWAS_matched_SNPS_with_eQTL$FREQ[idx]=1-GWAS_matched_SNPS_with_eQTL$FREQ[idx]
-          # GWAS_matched_SNPS_with_eQTL$se=sqrt(GWAS_matched_SNPS_with_eQTL$varbeta)
-          Cojo_Dataframe=GWAS_matched_SNPS_with_eQTL[,c("variant_id","effect_allele","other_allele","FREQ","beta","standard_error","p_value","N")]
-          names(Cojo_Dataframe)=c("SNP" , "A1" ,  "A2"  , "freq", "b"  ,  "se" ,  "p" ,   "N")
-          # from https://yanglab.westlake.edu.cn/software/gcta/#COJO
-          # A1 -- the effect allele
-          # A2 -- the other allele
-          # freq -- frequency of the effect allele
-          # b -- effect size
-          # p -- p-value
-          # N -- sample size
-          Cojo_Dataframe=Cojo_Dataframe[!is.na(Cojo_Dataframe$freq)]# <- 0
-          Cojo_Dataframe=Cojo_Dataframe[!Cojo_Dataframe$N <10]# <- 10 #Cojo doesnt like sample sizes smaller than 10
-          Cojo_Dataframe = transform(Cojo_Dataframe, freq = as.numeric(freq), N = as.numeric(N),b = as.numeric(b))
+make_cojo_df <- function(GWAS_matched_SNPS_with_eQTL, freqs){
+    GWAS_matched_SNPS_with_eQTL$FREQ = freqs$FreqA1[match(GWAS_matched_SNPS_with_eQTL$variant_id,freqs$SNP)]
+    idx = which(GWAS_matched_SNPS_with_eQTL$effect_allele!=freqs$effect_allele)
+    GWAS_matched_SNPS_with_eQTL$FREQ[idx] = 1-GWAS_matched_SNPS_with_eQTL$FREQ[idx]
+    # GWAS_matched_SNPS_with_eQTL$se=sqrt(GWAS_matched_SNPS_with_eQTL$varbeta)
+
+    Cojo_Dataframe <- dplyr::select(GWAS_matched_SNPS_with_eQTL,
+        SNP=variant_id,
+        A1=effect_allele,  # the effect allele
+        A2=other_allele,   # the other allele
+        freq=FREQ,         # frequency of the effect allele
+        b=beta,            # effect size
+        se=standard_error,
+        p=p_value,         # p-value
+        N                  # sample size
+    )
+    Cojo_Dataframe = Cojo_Dataframe[!is.na(Cojo_Dataframe$freq)]  # <- 0
+    Cojo_Dataframe = Cojo_Dataframe[!Cojo_Dataframe$N < 10]  # Cojo doesnt like sample sizes smaller than 10
+    Cojo_Dataframe = transform(Cojo_Dataframe, freq = as.numeric(freq), N = as.numeric(N),b = as.numeric(b))
     return (Cojo_Dataframe)
 }
 
 # call gcta program
 run_gcta <- function (bin='gcta', args){
-    print(paste(bin, args, collapse = ' '))
+    print(paste(c(bin, args), collapse = ' '))
     rc <- system2(command = bin, args = args)
     stopifnot(rc == 0)
 }

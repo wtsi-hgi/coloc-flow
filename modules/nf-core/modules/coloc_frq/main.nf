@@ -20,8 +20,8 @@ process COLOC_FREQ_AND_SNPS {
         path('*.sig_signals.list', emit: sig_signals)
         path('*.frqx', emit: frqx)
         path("Filtered_${gwas_name}", emit: bed_file)
-        path('*all_signals.tsv',emit: sig_signals_eqtls)
-        path(GWAS,emit: GWAS)
+        path('*all_signals.tsv', emit: sig_signals_eqtls)
+        path(GWAS, emit: GWAS)
 
 
     script:
@@ -41,4 +41,18 @@ process COLOC_FREQ_AND_SNPS {
     """
 }
 
-
+process GWAS_FREQ {
+    cpus 1
+    memory '6 GB'
+    container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
+    input:
+        path(bfile)
+    output:
+        path(${outfile}, emit: bfile)
+        path("*.frq", emit: frq)
+    script:
+    outfile = ${bfile.name}.filtered
+    """
+        plink --bfile ${bfile} --maf 0.0001 --make-bed --freq --out ${outfile}
+    """
+}

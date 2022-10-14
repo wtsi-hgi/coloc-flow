@@ -4,19 +4,18 @@ GWAS = args[1]
 bfile = args[2]
 coloc_input_file = args[3]
 # GWAS = 'GCST90014122_buildGRCh37.tsv'
-gwas_significance_threshold <- 5e-8
-eqtl_significance_threshold <- 5e-5
 
 print(GWAS)
 print(bfile)
 
 library(data.table)
 source('dataIO.R')
+source('helpers.R')
 
 return_list = load_GWAS(GWAS)
 Full_GWAS_Sum_Stats = return_list$map
 GWAS_name = return_list$GWAS_name
-Significant_GWAS_Signals = Full_GWAS_Sum_Stats[Full_GWAS_Sum_Stats$p_value < gwas_significance_threshold]
+Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats)
 
 writeLines(Full_GWAS_Sum_Stats$variant_id, con=paste0(GWAS_name, ".snp.list"))
 Significant_GWAS_Signals$gwas_name = paste(Significant_GWAS_Signals$variant_id, GWAS, sep='--')

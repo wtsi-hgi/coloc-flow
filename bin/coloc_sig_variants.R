@@ -1,11 +1,11 @@
 #!/usr/bin/env Rscript
-library(biomaRt)
 library(data.table)
 library(coloc)
 library(susieR)
 
 source('dataIO.R')
 source('cojo.R')
+source('helpers.R')
 
 # args = commandArgs(trailingOnly=TRUE)
 # eQTL = args[1] #'samplename'
@@ -14,6 +14,7 @@ source('cojo.R')
 eQTL="/lustre/scratch123/hgi/projects/bhf_finemap/summary_stats/eQTLs/all/Pericytes.17.gz"
 GWAS="GWAS_UKB_logWMHnorm.txt"
 variant="rs4588035"
+freq_file=paste0(GWAS_name, ".frqx")
 # Takes
 #1 frq file
 #2 variant name
@@ -21,13 +22,12 @@ GWAS_name = tools::file_path_sans_ext(basename(GWAS))
 eQTL_name = tools::file_path_sans_ext(basename(eQTL))
 eQTL_name = gsub("\\.", "_", eQTL_name)
 
-freqs = fread(paste0(GWAS_name,".frqx"))
-freqs$FreqA1 = (freqs$'C(HOM A1)'*2+freqs$'C(HET)')/(2*(rowSums(freqs[,c("C(HOM A1)", "C(HET)", "C(HOM A2)")])))
+freqs = read_freqs(freq_file)
 
-Significant_GWAS_Signals = read.table(paste(GWAS_name,'.sig_signals.list',sep=''),header=TRUE)
 return_list = load_GWAS(GWAS)
-Full_GWAS_Sum_Stats=return_list$map
-single_eqtl1 = load_eqtl(eQTL,Full_GWAS_Sum_Stats)
+Full_GWAS_Sum_Stats = return_list$map
+Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats)
+single_eqtl1 = load_eqtl(eQTL, Full_GWAS_Sum_Stats)
 
 dataset.list=list()
 dataset.list$results=list()
@@ -42,13 +42,13 @@ print(paste('Running GWAS variant', variant_id))
 range_min <- base_pair_location - 1000000
 range_max <- base_pair_location + 1000000
 variants_of_interest <- dplyr::filter(Full_GWAS_Sum_Stats,
-    chromosome = chromosome1,
+    chromosome == chromosome1,
     base_pair_location > range_min,
     base_pair_location < range_max
 )
 
 # GWAS_matched_SNPS_with_eQTL=variants_of_interest
-Cojo_Dataframe <- make_cojo_df(variants_of_interest)
+Cojo_Dataframe <- make_cojo_df(variants_of_interest, freqs = freqs)
 
 marker_filename <- paste0(variant_id, '_', GWAS_name, ".snp.list")
 writeLines(Cojo_Dataframe$SNP, con=marker_filename)
@@ -56,7 +56,7 @@ writeLines(Cojo_Dataframe$SNP, con=marker_filename)
 cojo_filename <- paste0(variant_id, '_', GWAS_name, "_sum.txt")
 fwrite(Cojo_Dataframe, file=cojo_filename, row.names=F, quote=F, sep="\t")
 
-cojo_out <- run_gcta(
+cojo_out <- run_cojo(
     bfile = paste0("Filtered_", GWAS_name, "/Filtered_", GWAS_name),
     marker_list = marker_filename,
     summary_stat = cojo_filename,
