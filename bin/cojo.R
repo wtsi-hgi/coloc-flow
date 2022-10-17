@@ -19,7 +19,7 @@ make_cojo_df <- function(GWAS_matched_SNPS_with_eQTL, freqs){
     )
     Cojo_Dataframe = Cojo_Dataframe[!is.na(Cojo_Dataframe$freq)]  # <- 0
     Cojo_Dataframe = Cojo_Dataframe[!Cojo_Dataframe$N < 10]  # Cojo doesnt like sample sizes smaller than 10
-    Cojo_Dataframe = transform(Cojo_Dataframe, freq = as.numeric(freq), N = as.numeric(N),b = as.numeric(b))
+    Cojo_Dataframe = transform(Cojo_Dataframe, freq = as.numeric(freq), N = as.numeric(N), b = as.numeric(b))
     return (Cojo_Dataframe)
 }
 
@@ -31,7 +31,7 @@ run_gcta <- function (bin='gcta', args){
 }
 
 # call gcta program in COJO-mode
-run_cojo <- function (bin=NULL, bfile, marker_list, summary_stat, out_prefix){
+run_cojo <- function (bin = NULL, bfile, marker_list, conditional_markers = NULL, summary_stat, out_prefix){
     gcta_args <- c(
         '--bfile', bfile,
         '--extract', marker_list,     # limit the COJO analysis in a certain genomic region
@@ -41,12 +41,21 @@ run_cojo <- function (bin=NULL, bfile, marker_list, summary_stat, out_prefix){
         '--out', out_prefix
     )
 
+    if (!is.null(conditional_markers)){
+        gcta_args <- append(gcta_args,
+            c('--cojo-cond', conditional_markers)  # analysis conditional on the given list of SNPs
+        )
+    }
+
     cmd <- list(args = gcta_args)
     if(!is.null(bin)){
         cmd$bin <- bin
     }
     do.call(run_gcta, cmd)
 
-    outfile <- paste0(out_prefix, ".jma.cojo")
-    return(outfile)
+    out <- list(
+        independent_signals = paste0(out_prefix, ".jma.cojo"),
+        conditional_analysis = paste0(out_prefix, ".cma.cojo")
+    )
+    return(out)
 }
