@@ -40,32 +40,19 @@ variant_id <- row1[["variant_id"]]
 chromosome1 <- row1[["chromosome"]]
 print(paste('Running GWAS variant', variant_id))
 
-range_min <- base_pair_location - 1000000
-range_max <- base_pair_location + 1000000
-variants_of_interest <- dplyr::filter(Full_GWAS_Sum_Stats,
-    chromosome == chromosome1,
-    base_pair_location > range_min,
-    base_pair_location < range_max
-)
 genes_of_interest <- dplyr::filter(single_eqtl1,
     chromosome == chromosome1,
-    base_pair_location > range_min,
-    base_pair_location < range_max
+    base_pair_location > base_pair_location - 1000000,
+    base_pair_location < base_pair_location + 1000000
 )
 
-# GWAS_matched_SNPS_with_eQTL=variants_of_interest
-Cojo_Dataframe <- make_cojo_df(variants_of_interest, freqs = freqs)
-
-marker_filename <- paste0(variant_id, '_', GWAS_name, ".snp.list")
-writeLines(Cojo_Dataframe$SNP, con=marker_filename)
-
-cojo_filename <- paste0(variant_id, '_', GWAS_name, "_sum.txt")
-fwrite(Cojo_Dataframe, file=cojo_filename, row.names=F, quote=F, sep="\t")
-
-cojo_out <- run_cojo(
+cojo_out <- run_cojo_on_locus(
     bfile = bfile,
-    marker_list = marker_filename,
-    summary_stat = cojo_filename,
+    chrom = chromosome1,
+    start = base_pair_location - 1e6,
+    end = base_pair_location + 1e6,
+    summary_stat = Full_GWAS_Sum_Stats,
+    freqs = freqs,
     out_prefix = paste(variant_id, GWAS_name, "step1", sep = "_")
 )
 
