@@ -1,9 +1,7 @@
-FROM genomicdatascience/coloc-susie
-SHELL ["conda", "run", "-n", "coloc-susie", "/bin/bash", "-c"]
-RUN conda install -c bioconda bioconductor-biomart
-RUN conda install -c anaconda libxml2 
-SHELL ["/bin/sh", "-c"]
+FROM ubuntu
+RUN cat /etc/os-release
 ARG DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && \
     apt-get install --yes -y --no-install-recommends dirmngr apt-transport-https ca-certificates software-properties-common gnupg2 \
     build-essential curl git \ 
@@ -12,42 +10,40 @@ RUN apt-get update && \
     libblas-dev libx11-dev libxml2 libxml2-dev \
     libreadline-dev libxt-dev libpcre2-dev libcurl4-openssl-dev && \
     rm -rf /var/lib/apt/lists/*
-
-RUN /bin/anaconda/envs/coloc-susie/bin/R -e 'install.packages("remotes", repos="https://cloud.r-project.org")' 
-RUN /bin/anaconda/envs/coloc-susie/bin/R -e 'remotes::install_github("mrcieu/ieugwasr")' 
-RUN /bin/anaconda/envs/coloc-susie/bin/R -e 'install.packages("BiocManager", repos="https://cloud.r-project.org")'
-
-
-RUN apt-get install libcurl4-openssl-dev
-RUN apt-get install libxml2
-RUN which conda
-RUN R -e 'BiocManager::install("XML")'
+ENV NB_USER container_user
+ENV HOME /home/${NB_USER}
+RUN mkdir ${HOME}
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
+RUN add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran40/'
+RUN apt update && apt-get install wget
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.11.0-Linux-x86_64.sh -O /tmp/miniconda.sh && chmod +x  /tmp/miniconda.sh && bash /tmp/miniconda.sh -b -p ${HOME}/conda
+# # RUN bash Miniconda3-latest-Linux-x86_64.sh
+ENV PATH ${HOME}/conda/bin:$PATH
+COPY environment.yml ${HOME}/tmp2/environment.yml
+RUN conda config --set always_yes yes --set changeps1 no && \
+    conda env update -v -n root --file ${HOME}/tmp2/environment.yml && \
+    conda list --name root && \
+    conda clean -atipy && \
+    rm ${HOME}/tmp2/environment.yml
+WORKDIR ${HOME}/tmp2
+RUN which R
+RUN R -e 'install.packages("remotes", repos="https://cloud.r-project.org")' 
+RUN R -e 'remotes::install_github("mrcieu/ieugwasr")' 
+RUN R -e 'install.packages("BiocManager", repos="https://cloud.r-project.org")'
+RUN R -e 'remotes::install_github("chr1swallace/coloc@main",build_vignettes=FALSE)'
 RUN R -e 'BiocManager::install("biomaRt")'
-
-# RUN yes | yum -y install libxml2 libxml2-devel
-# RUN wget https://github.com/jianyangqt/gcta/releases/download/v1.94.1beta/gcta_v1.94.1Beta_linux_kernel_5_x86_64_static | ls
-# RUN unzip gcta_v1.94.0Beta_linux_kernel_3_x86_64.zip
-# RUN https://github.com/jianyangqt/gcta/releases/download/v1.94.1beta/gcta_v1.94.1Beta_linux_kernel_5_x86_64_static
-# RUN chmod a+x gcta_v1.94.1Beta_linux_kernel_5_x86_64_static
-COPY gcta_v1.94.1Beta_linux_kernel_5_x86_64_static ${HOME}
-# LIBXML_INCDIR
-# LIBXML_LIBDIR
-RUN /bin/anaconda/envs/coloc-susie/bin/R -e 'requireNamespace("BiocManager"); BiocManager::install("biomaRt")'
+RUN R -e 'install.packages("R.utils", repos="https://cloud.r-project.org")'
+RUN which conda
+# SHELL ["conda", "run", "-n", "container_user", "/bin/bash", "-c"]
 SHELL ["conda", "run", "-n", "root", "/bin/bash", "-c"]
+RUN conda install -c bioconda plink
+RUN conda install -c bioconda gcta
 RUN conda install -c conda-forge r-r.utils
-RUN conda install -c bioconda bioconductor-biomart
-RUN conda install -c bioconda/label/gcc7 bioconductor-biomart
-RUN conda install -c conda-forge r-r.utils
-# RUN conda install -c bioconda r-biomartr
-# RUN conda install -c conda-forge r-biocmanager
-# RUN /bin/anaconda/envs/coloc-susie/bin/R -e 'requireNamespace("BiocManager", quietly = FALSE)'
-# RUN /bin/anaconda/envs/coloc-susie/bin/R -e 'BiocManager::install("biomaRt"), repos="https://cloud.r-project.org")'
-# RUN conda install -c bioconda r-biomartr
-ENV LIBXML_INCDIR=/usr/bin/xmllint
-RUN which xmllint
+RUN conda install -c conda-forge unzip 
+RUN which gcta64
+RUN which unzip
+RUN which gzip
 SHELL ["/bin/sh", "-c"]
-
-RUN R -e 'install.packages("XML", repos="https://cloud.r-project.org")' 
-SHELL ["conda", "run", "-n", "coloc-susie", "/bin/bash", "-c"]
-
-# RUN which R
+COPY gcta_v1.94.1Beta_linux_kernel_5_x86_64_static ${HOME}
+RUN ln -s ${HOME}/gcta_v1.94.1Beta_linux_kernel_5_x86_64_static /usr/bin/gcta
+RUN which gcta
