@@ -40,19 +40,33 @@ variant_id <- row1[["variant_id"]]
 chromosome1 <- row1[["chromosome"]]
 print(paste('Running GWAS variant', variant_id))
 
+variants_of_interest <- dplyr::filter(Full_GWAS_Sum_Stats,
+    chromosome == chromosome1,
+    base_pair_location >= base_pair_location - 1e6,
+    base_pair_location <= base_pair_location + 1e6
+)
+
+Cojo_Dataframe <- make_cojo_df(variants_of_interest, freqs = freqs)
+
 genes_of_interest <- dplyr::filter(single_eqtl1,
     chromosome == chromosome1,
-    base_pair_location > base_pair_location - 1000000,
-    base_pair_location < base_pair_location + 1000000
+    base_pair_location > base_pair_location - 1e6,
+    base_pair_location < base_pair_location + 1e6
 )
+
+variant_build <- get_snp_build_version(rs = variant_id, pos = base_pair_location)
+if(variant_build != 'hg38'){
+    ch <- load_chain_file(from = variant_build, to = 'hg38')
+    base_pair_location <- lift_over_bp(chrom = chromosome1, bp = base_pair_location, chain = ch)
+}
 
 cojo_out <- run_cojo_on_locus(
     bfile = bfile,
     chrom = chromosome1,
     start = base_pair_location - 1e6,
     end = base_pair_location + 1e6,
-    summary_stat = Full_GWAS_Sum_Stats,
-    freqs = freqs,
+    pvalue = gwas_significance_threshold,
+    summary_stat = Cojo_Dataframe,
     out_prefix = paste(variant_id, GWAS_name, "step1", sep = "_")
 )
 
@@ -69,21 +83,11 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
         conditional_markers = independent_markerfile,
         out_prefix = paste(variant_id, GWAS_name, "step2", sep = '_')
     )
-    conditioned_dataset = fread(cojo_cond_out$conditional_analysis)
-    conditioned_dataset_condSNP = fread(cojo_cond_out$independent_signals)
-    conditioned_dataset_condSNP=conditioned_dataset_condSNP[conditioned_dataset_condSNP$SNP == GWAS_signal]
-
-    conditioned_dataset_condSNP = conditioned_dataset_condSNP[, !c("LD_r","pJ","bJ","bJ_se")]
-    conditioned_dataset_condSNP$pC = conditioned_dataset_condSNP$p
-    conditioned_dataset_condSNP$bC = conditioned_dataset_condSNP$b
-    conditioned_dataset_condSNP$bC_se = conditioned_dataset_condSNP$se
-    conditioned_dataset = rbind(conditioned_dataset, conditioned_dataset_condSNP)
+    conditioned_dataset <- combine_cojo_results(independent_signals = cojo_cond_out$independent_signals,
+                                                conditional_signals = cojo_cond_out$conditional_analysis,
+                                                lead_snp = GWAS_signal)
     # some SNP(s) have large difference of allele frequency between the GWAS summary data and the reference sample, hence are removed.
-    D1=conditioned_dataset[,c("SNP","Chr","bp","bC","bC_se","n","pC","freq")]
-    names(D1)=c("snp","chr","position","beta","varbeta","N","pvalues","MAF")
-    D1$type="quant"
-    D1$varbeta=D1$varbeta^2
-    D1=na.omit(D1)
+    D1 <- prepare_coloc_table(conditioned_dataset)
 
     all_unique_eQTL_signals_in_this_GWAS_range = unique(genes_of_interest$gene)
 
