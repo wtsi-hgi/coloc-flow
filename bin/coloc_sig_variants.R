@@ -12,6 +12,7 @@ source('helpers.R')
 # GWAS =args[2] # '../donor_ids.tsv'
 # variant = args[3]
 eQTL="/lustre/scratch123/hgi/projects/bhf_finemap/summary_stats/eQTLs/all/Pericytes.17.gz"
+eqtl_samples_number = 192
 GWAS="GWAS_UKB_logWMHnorm.txt"
 variant="rs4588035"
 freq_file=paste0(GWAS_name, ".frqx")
@@ -28,7 +29,7 @@ freqs = read_freqs(freq_file)
 return_list = load_GWAS(GWAS)
 Full_GWAS_Sum_Stats = return_list$map
 Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats)
-single_eqtl1 = load_eqtl(eQTL, Full_GWAS_Sum_Stats)
+single_eqtl1 = load_eqtl(eQTL, eqtl_marker_file)
 
 dataset.list=list()
 dataset.list$results=list()
@@ -53,6 +54,7 @@ genes_of_interest <- dplyr::filter(single_eqtl1,
     base_pair_location > base_pair_location - 1e6,
     base_pair_location < base_pair_location + 1e6
 )
+all_unique_eQTL_signals_in_this_GWAS_range = unique(genes_of_interest$gene)
 
 variant_build <- get_snp_build_version(rs = variant_id, pos = base_pair_location)
 if(variant_build != 'hg38'){
@@ -60,13 +62,24 @@ if(variant_build != 'hg38'){
     base_pair_location <- lift_over_bp(chrom = chromosome1, bp = base_pair_location, chain = ch)
 }
 
-cojo_out <- run_cojo_on_locus(
-    bfile = bfile,
-    chrom = chromosome1,
+cojo_filename <- paste0(variant_id, '_', GWAS_name, "_sum.txt")
+fwrite(summary_stat, file = cojo_filename, row.names = F, quote = F, sep = "\t")
+
+locus_filename <- paste(basename(bfile), chrom, start, end, sep = '-')
+extract_locus(
+    bin = plink2_bin,
+    genotypes_prefix = bfile,
+    chrom = chrom,
     start = base_pair_location - 1e6,
     end = base_pair_location + 1e6,
+    out_prefix = locus_filename
+)
+
+cojo_out <- run_cojo(
+    bin = gcta_bin,
+    bfile = locus_filename,
+    summary_stat = cojo_filename,
     pvalue = gwas_significance_threshold,
-    summary_stat = Cojo_Dataframe,
     out_prefix = paste(variant_id, GWAS_name, "step1", sep = "_")
 )
 
@@ -77,39 +90,35 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
     independent_markerfile <- paste0(GWAS_signal, "_independent.snp")
     writeLines(GWAS_signal, con = independent_markerfile)
     cojo_cond_out <- run_cojo(
-        bfile = bfile,
-        marker_list = marker_filename,
+        bin = gcta_bin,
+        bfile = locus_filename,
         summary_stat = cojo_filename,
+        pvalue = gwas_significance_threshold,
         conditional_markers = independent_markerfile,
         out_prefix = paste(variant_id, GWAS_name, "step2", sep = '_')
     )
-    conditioned_dataset <- combine_cojo_results(independent_signals = cojo_cond_out$independent_signals,
+    conditioned_dataset <- combine_cojo_results(independent_signals = cojo_out$independent_signals,
                                                 conditional_signals = cojo_cond_out$conditional_analysis,
                                                 lead_snp = GWAS_signal)
     # some SNP(s) have large difference of allele frequency between the GWAS summary data and the reference sample, hence are removed.
     D1 <- prepare_coloc_table(conditioned_dataset)
 
-    all_unique_eQTL_signals_in_this_GWAS_range = unique(genes_of_interest$gene)
-
     for (qtl1 in all_unique_eQTL_signals_in_this_GWAS_range){
-        single_eqtl=eQTL_singals_on_GWAS_SNP_chtomosome[eQTL_singals_on_GWAS_SNP_chtomosome$gene==qtl1,]
+        single_eqtl = genes_of_interest[genes_of_interest$gene==qtl1, ]
         single_eqtl2 = single_eqtl
         rownames(single_eqtl2) <- single_eqtl2$SNP
-        single_eqtl2$N = 200   #Check if there is an actual n number.
 
         if (min(single_eqtl2$p) < eqtl_significance_threshold){
             Cojo_Dataframe_eqtl = make_cojo_df(single_eqtl2)
-
-            eqtl_marker_list <- paste(variant_id, qtl1, eQTL_name, "eqtl.snp.list", sep = "_")
-            writeLines(Cojo_Dataframe_eqtl$SNP, con = eqtl_marker_list)
 
             eqtl_summary_file <- paste(variant_id, qtl1, eQTL_name, "eqtl_sum.txt", sep = "_")
             fwrite(Cojo_Dataframe_eqtl, file = eqtl_summary_file, row.names = F, quote = F, sep = "\t")
 
             eqtl_cojo_out <- run_cojo(
-                bfile = bfile,
-                marker_list = eqtl_marker_list,
+                bin = gcta_bin,
+                bfile = locus_filename,
                 summary_stat = eqtl_summary_file,
+                pvalue = eqtl_significance_threshold,
                 out_prefix = paste(variant_id, qtl1, eQTL_name, "eqtl_step1", sep = "_")
             )
             independent_SNPs_eQTL <- fread(eqtl_cojo_out$independent_signals)
@@ -121,35 +130,29 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
                 writeLines(independent_eqtl_SNP_to_contition_on, con = eqtl_independant_markerfile)
 
                 eqtl_cond_cojo_out <- run_cojo(
-                    bfile = bfile,
-                    marker_list = eqtl_marker_list,
+                    bin = gcta_bin,
+                    bfile = locus_filename,
                     summary_stat = eqtl_summary_file,
+                    pvalue = eqtl_significance_threshold,
                     conditional_markers = eqtl_independant_markerfile,
                     out_prefix = paste(variant_id, qtl1, eQTL_name, independent_eqtl_SNP_to_contition_on, "eqtl_step2", sep = "_")
                 )
 
-                conditioned_dataset_eQTL=fread(eqtl_cond_cojo_out$conditional_analysis)
-                # Conditioned dataset doesnt nontain the SNP that we condition the data to, this needs to be included.
-                conditioned_dataset_eQTL_condSNP=fread(paste0(variant_id,"_",qtl1,"_",eQTL_name,"eqtl_step1.jma.cojo"))
-                conditioned_dataset_eQTL_condSNP=conditioned_dataset_eQTL_condSNP[conditioned_dataset_eQTL_condSNP$SNP == independent_eqtl_SNP_to_contition_on]
-                conditioned_dataset_eQTL_condSNP = conditioned_dataset_eQTL_condSNP[, !c("LD_r","pJ","bJ","bJ_se")]
-                conditioned_dataset_eQTL_condSNP$pC = conditioned_dataset_eQTL_condSNP$p
-                conditioned_dataset_eQTL_condSNP$bC = conditioned_dataset_eQTL_condSNP$b
-                conditioned_dataset_eQTL_condSNP$bC_se = conditioned_dataset_eQTL_condSNP$se
-                conditioned_dataset_eQTL = rbind(conditioned_dataset_eQTL, conditioned_dataset_eQTL_condSNP)
+                conditioned_dataset_eQTL <- combine_cojo_results(
+                    independent_signals = eqtl_cojo_out$independent_signals,
+                    conditional_signals = eqtl_cond_cojo_out$conditional_analysis,
+                    lead_snp = independent_eqtl_SNP_to_contition_on
+                )
 
-                D2=conditioned_dataset_eQTL[,c("SNP","Chr","bp","bC","bC_se","n","pC","freq")]
-                names(D2)=c("snp","chr","position","beta","varbeta","N","pvalues","MAF")
-                D2$type="quant"
-                D2$varbeta=D2$varbeta^2
-                D2=na.omit(D2)
+                D2 <- prepare_coloc_table(conditioned_dataset_eQTL)
+                D2$N <- eqtl_samples_number
+
                 SNPs_To_Colocalise = intersect(D1$snp,D2$snp)
-                # D1_col = D1$snp == SNPs_To_Colocalise
-                D1_col =D1[D1$snp %in% SNPs_To_Colocalise,]
-                D2_col =D2[D2$snp %in% SNPs_To_Colocalise,]
+                D1_col = D1[D1$snp %in% SNPs_To_Colocalise,]
+                D2_col = D2[D2$snp %in% SNPs_To_Colocalise,]
 
                 # dataset1 and dataset2 should contain the same snps in the same order, or should contain snp names through which the common snps can be identified
-                colo.res=coloc.abf(D1,D2)
+                colo.res=coloc.abf(D1, D2)
                 colo_res=data.frame(t(colo.res$summary))
                 colo_res$GWAS_hit1=''
                 colo_res$eQTL_hit2=''

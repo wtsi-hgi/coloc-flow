@@ -54,31 +54,32 @@ load_GWAS <- function(GWAS){
 
 }
 
-load_eqtl <- function(eqtl.file, Full_GWAS_Sum_Stats){
-  #### Eqtl data
-  eqtl = fread(eqtl.file, col.names = c("gene","SNP","TSS_dist","p","beta"))
-  eqtl$se = abs(eqtl$beta)/sqrt(qchisq(eqtl$p,df = 1,lower.tail = F))
-  Celltype = basename(eqtl.file)
-  Celltype = gsub('\\.','_',Celltype)
-  single_eqtl1 = eqtl
+#### Eqtl data
+load_eqtl <- function(eqtl.file, marker.file, build = 'hg38'){
+    build_choices <- c('hg19', 'hg38')
+    build <- match.arg(build, choices = build_choices)
 
-  # Here we diver a bit and add the positional info to the SNPs if available.
-  snp_matches <- match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)
-  single_eqtl1$ea_allele = Full_GWAS_Sum_Stats$effect_allele[snp_matches]
-  single_eqtl1$oth_allele = Full_GWAS_Sum_Stats$other_allele[snp_matches]
-  single_eqtl1$chromosome = Full_GWAS_Sum_Stats$chromosome[snp_matches]
-  single_eqtl1$base_pair_location = Full_GWAS_Sum_Stats$base_pair_location[snp_matches]
-  single_eqtl1 = single_eqtl1[!is.na(single_eqtl1$ea_allele)]
+    # https://zenodo.org/record/6104982
+    eqtl <- fread(eqtl.file, col.names = c("gene", "SNP", "distance_to_TSS", "p", "beta"))
+    eqtl$se <- abs(eqtl$beta) / sqrt(qchisq(eqtl$p, df = 1, lower.tail = F))
 
-  #eQTL col rename
-  single_eqtl1 <- dplyr::rename(single_eqtl1,
+    position_column_name <- paste0('SNP_id_', build)
+    another_column_name <- paste0('SNP_id_', setdiff(build_choices, build))
+
+    snps <- fread(marker.file, drop = another_column_name)
+
+    single_eqtl <- dplyr::inner_join(eqtl, snps, by = 'SNP')
+    single_eqtl <- tidyr::separate(single_eqtl, col = position_column_name, sep = ':',
+                                   into = c('chromosome', 'base_pair_location'))
+    snps$chromosome <- gsub('chr', '', snps$chromosome)
+
+    #eQTL col rename
+    single_eqtl <- dplyr::rename(single_eqtl,
       p_value = p,
-      effect_allele = ea_allele,
-      other_allele = oth_allele,
       variant_id = SNP,
       standard_error = se
-  )
-  return (single_eqtl1)
+    )
+    return (single_eqtl)
 }
 
 # reads plink's frq(x) file
