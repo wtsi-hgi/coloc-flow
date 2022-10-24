@@ -60,3 +60,22 @@ lift_over_bp <- function (chrom, bp, chain){
     bp_new <- BiocGenerics::start(grange_new)
     return(bp_new)
 }
+
+lift_over_df <- function (df, chain){
+    stopifnot(all(c('chromosome', 'base_pair_location') %in% colnames(df)))
+    gr <- GenomicRanges::makeGRangesFromDataFrame(
+      df,
+      keep.extra.columns = T,
+      seqnames.field = 'chromosome',
+      start.field = 'base_pair_location',
+      end.field = 'base_pair_location'
+    )
+    GenomeInfoDb::seqlevelsStyle(gr) <- "UCSC"
+
+    gr_new <- unlist(rtracklayer::liftOver(gr, chain))
+    df_new <- data.table::as.data.table(gr_new)
+    df_new$seqnames <- as.integer(gsub('chr', '', df_new$seqnames))
+    df_new <- dplyr::rename(df_new, base_pair_location = start, chromosome = seqnames)
+    df_new <- dplyr::select(df_new, -end, -width, -strand)
+    return(df_new)
+}

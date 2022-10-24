@@ -2,10 +2,17 @@
 library(data.table)
 requireNamespace('dplyr')
 
-make_cojo_df <- function(df){
-    stopifnot(all(c('effect_allele', 'A1', 'A1_FREQ') %in% colnames(df)))
-    idx <- df$effect_allele == df$A1
-    df$FREQ <- ifelse(idx, df$A1_FREQ, 1 - df$A1_FREQ)
+make_cojo_df <- function(df, source = c('gwas', 'eqtl')){
+    if (source == 'gwas'){
+        stopifnot(all(c('effect_allele', 'A1', 'A1_FREQ') %in% colnames(df)))
+        idx <- df$effect_allele == df$A1
+        df$FREQ <- ifelse(idx, df$A1_FREQ, 1 - df$A1_FREQ)
+    }
+
+    if (source == 'eqtl'){
+        # we can do this since in eQTL effect allele is always the minor allele
+        df = dplyr::rename(df, FREQ = MAF)
+    }
 
     Cojo_Dataframe <- dplyr::select(df,
         SNP=variant_id,
@@ -26,8 +33,16 @@ make_cojo_df <- function(df){
 # a small wrapper for system call with return code check
 run_tool <- function (bin, args){
     print(paste(c(bin, args), collapse = ' '))
-    rc <- system2(command = bin, args = args)
-    stopifnot(rc == 0)
+    logfile <- tempfile()
+    rc <- system2(command = bin, args = args, stdout = logfile)
+    log <- readLines(logfile)
+    file.remove(logfile)
+    if(rc != 0){
+        cat(paste(log, collapse = '\n'))
+        stop(rc != 0)
+    } else{
+        cat(paste(tail(log, n = 15), collapse = '\n'))
+    }
 }
 
 # call gcta program
@@ -125,7 +140,7 @@ combine_cojo_results <- function (independent_signals, conditional_signals, lead
 
     conditioned_dataset_condSNP <- conditioned_dataset_condSNP[conditioned_dataset_condSNP$SNP == lead_snp]
     conditioned_dataset_condSNP <- conditioned_dataset_condSNP[, !c("LD_r","pJ","bJ","bJ_se")]
-    conditioned_dataset_condSNP <- dplyr::rename(conditioned_dataset_condSNP,
+    conditioned_dataset_condSNP <- dplyr::mutate(conditioned_dataset_condSNP,
         pC = p, bC = b, bC_se = se
     )
 
@@ -138,7 +153,7 @@ prepare_coloc_table <- function (df){
         snp = 'variant_id', chr = 'chromosome', position = 'base_pair_location',
         varbeta = 'standard_error', pvalues = 'p_value', 'beta', MAF = 'A1_FREQ', 'N',
         snp = 'SNP', chr = 'Chr', position = 'bp',
-        beta = 'bC', varbeta = 'bC_se', N = 'n', pvalues = 'pC', MAF = 'freq'
+        beta = 'bC', varbeta = 'bC_se', pvalues = 'pC', MAF = 'freq'
     )
     names <- intersect(rules, colnames(df))
     rename_rules <- rules[rules %in% names]

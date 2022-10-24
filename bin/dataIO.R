@@ -69,9 +69,9 @@ load_eqtl <- function(eqtl.file, marker.file, build = 'hg38'){
     snps <- fread(marker.file, drop = another_column_name)
 
     single_eqtl <- dplyr::inner_join(eqtl, snps, by = 'SNP')
-    single_eqtl <- tidyr::separate(single_eqtl, col = position_column_name, sep = ':',
+    single_eqtl <- tidyr::separate(single_eqtl, col = position_column_name, sep = ':', convert = T,
                                    into = c('chromosome', 'base_pair_location'))
-    snps$chromosome <- gsub('chr', '', snps$chromosome)
+    single_eqtl$chromosome <- as.integer(gsub('chr', '', single_eqtl$chromosome))
 
     #eQTL col rename
     single_eqtl <- dplyr::rename(single_eqtl,

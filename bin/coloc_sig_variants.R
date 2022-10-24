@@ -24,7 +24,7 @@ GWAS_name = tools::file_path_sans_ext(basename(GWAS))
 eQTL_name = tools::file_path_sans_ext(basename(eQTL))
 eQTL_name = gsub("\\.", "_", eQTL_name)
 
-freqs = read_freqs(freq_file)
+# freqs = read_freqs(freq_file)
 
 return_list = load_GWAS(GWAS)
 Full_GWAS_Sum_Stats = return_list$map
@@ -41,37 +41,42 @@ variant_id <- row1[["variant_id"]]
 chromosome1 <- row1[["chromosome"]]
 print(paste('Running GWAS variant', variant_id))
 
+locus_start <- base_pair_location - 1e6
+locus_end <- base_pair_location + 1e6
+
 variants_of_interest <- dplyr::filter(Full_GWAS_Sum_Stats,
     chromosome == chromosome1,
-    base_pair_location >= base_pair_location - 1e6,
-    base_pair_location <= base_pair_location + 1e6
+    between(base_pair_location, locus_start, locus_end)
 )
-
-Cojo_Dataframe <- make_cojo_df(variants_of_interest, freqs = freqs)
-
-genes_of_interest <- dplyr::filter(single_eqtl1,
-    chromosome == chromosome1,
-    base_pair_location > base_pair_location - 1e6,
-    base_pair_location < base_pair_location + 1e6
-)
-all_unique_eQTL_signals_in_this_GWAS_range = unique(genes_of_interest$gene)
 
 variant_build <- get_snp_build_version(rs = variant_id, pos = base_pair_location)
 if(variant_build != 'hg38'){
+    message(paste('Convert GWAS positions from', variant_build, 'to hg38'))
     ch <- load_chain_file(from = variant_build, to = 'hg38')
-    base_pair_location <- lift_over_bp(chrom = chromosome1, bp = base_pair_location, chain = ch)
+    variants_of_interest <- lift_over_df(variants_of_interest, chain = ch)
+
+    locus_start <- min(variants_of_interest$base_pair_location)
+    locus_end <- max(variants_of_interest$base_pair_location)
 }
 
-cojo_filename <- paste0(variant_id, '_', GWAS_name, "_sum.txt")
-fwrite(summary_stat, file = cojo_filename, row.names = F, quote = F, sep = "\t")
+Cojo_Dataframe <- make_cojo_df(variants_of_interest)
 
-locus_filename <- paste(basename(bfile), chrom, start, end, sep = '-')
+genes_of_interest <- dplyr::filter(single_eqtl1,
+    chromosome == chromosome1,
+    between(base_pair_location, locus_start, locus_end)
+)
+all_unique_eQTL_signals_in_this_GWAS_range = unique(genes_of_interest$gene)
+
+cojo_filename <- paste0(variant_id, '_', GWAS_name, "_sum.txt")
+fwrite(Cojo_Dataframe, file = cojo_filename, row.names = F, quote = F, sep = "\t")
+
+locus_filename <- paste(basename(bfile), chromosome1, locus_start, locus_end, sep = '-')
 extract_locus(
     bin = plink2_bin,
     genotypes_prefix = bfile,
-    chrom = chrom,
-    start = base_pair_location - 1e6,
-    end = base_pair_location + 1e6,
+    chrom = chromosome1,
+    start = locus_start,
+    end = locus_end,
     out_prefix = locus_filename
 )
 
@@ -102,11 +107,13 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
                                                 lead_snp = GWAS_signal)
     # some SNP(s) have large difference of allele frequency between the GWAS summary data and the reference sample, hence are removed.
     D1 <- prepare_coloc_table(conditioned_dataset)
+    D1$N <- unique(Cojo_Dataframe$N)
 
     for (qtl1 in all_unique_eQTL_signals_in_this_GWAS_range){
         single_eqtl = genes_of_interest[genes_of_interest$gene==qtl1, ]
         single_eqtl2 = single_eqtl
         rownames(single_eqtl2) <- single_eqtl2$SNP
+        single_eqtl2$N <- eqtl_samples_number
 
         if (min(single_eqtl2$p) < eqtl_significance_threshold){
             Cojo_Dataframe_eqtl = make_cojo_df(single_eqtl2)
@@ -159,7 +166,7 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
                 colo_res$GWAS_Conditioned_SNP=GWAS_signal
                 colo_res$eQTL=qtl1
                 colo_res$eQTL_Conditioned_SNP=independent_eqtl_SNP_to_contition_on
-                colo_res$GWAS_Range=paste(range_min,':',range_max)
+                colo_res$GWAS_Range=paste(locus_start, ':', locus_end)
                 print('|||Coloc result:|||')
                 print(colo_res)
 
