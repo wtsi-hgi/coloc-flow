@@ -3,6 +3,7 @@ library(data.table)
 requireNamespace('dplyr')
 
 make_cojo_df <- function(df, source = c('gwas', 'eqtl')){
+    source <- match.arg(source)
     if (source == 'gwas'){
         stopifnot(all(c('effect_allele', 'A1', 'A1_FREQ') %in% colnames(df)))
         idx <- df$effect_allele == df$A1
@@ -10,8 +11,8 @@ make_cojo_df <- function(df, source = c('gwas', 'eqtl')){
     }
 
     if (source == 'eqtl'){
-        # we can do this since in eQTL effect allele is always the minor allele
-        df = dplyr::rename(df, FREQ = MAF)
+        # we can do this since in eQTL data effect allele is always the minor allele
+        df <- dplyr::rename(df, FREQ = MAF)
     }
 
     Cojo_Dataframe <- dplyr::select(df,

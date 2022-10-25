@@ -116,7 +116,7 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
         single_eqtl2$N <- eqtl_samples_number
 
         if (min(single_eqtl2$p) < eqtl_significance_threshold){
-            Cojo_Dataframe_eqtl = make_cojo_df(single_eqtl2)
+            Cojo_Dataframe_eqtl = make_cojo_df(single_eqtl2, source = 'eqtl')
 
             eqtl_summary_file <- paste(variant_id, qtl1, eQTL_name, "eqtl_sum.txt", sep = "_")
             fwrite(Cojo_Dataframe_eqtl, file = eqtl_summary_file, row.names = F, quote = F, sep = "\t")
