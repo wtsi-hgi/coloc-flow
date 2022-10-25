@@ -1,33 +1,38 @@
 #!/usr/bin/env Rscript
 library(data.table)
 library(coloc)
-library(susieR)
+# library(susieR)
+library(optparse)
+
+option_list <- list(
+    make_option('--gwas', action="store", help="path to GWAS summary statistic"),
+    make_option('--rs', action="store", help="variant ID"),
+    make_option('--bfile', action="store", help="path to plink genotypes prefix"),
+    make_option('--eqtl', action="store", help="path to eqtl data"),
+    make_option('--eqtl_snps', action="store", help = "path to eqtl snp_pos.txt file"),
+    make_option('--eqtl_samples', action="store", default=192, help = "number of samples in eQTL study")
+)
+args <- parse_args(OptionParser(option_list=option_list))
 
 source('dataIO.R')
 source('cojo.R')
 source('helpers.R')
 
-# args = commandArgs(trailingOnly=TRUE)
-# eQTL = args[1] #'samplename'
-# GWAS =args[2] # '../donor_ids.tsv'
-# variant = args[3]
-eQTL="/lustre/scratch123/hgi/projects/bhf_finemap/summary_stats/eQTLs/all/Pericytes.17.gz"
-eqtl_samples_number = 192
-GWAS="GWAS_UKB_logWMHnorm.txt"
-variant="rs4588035"
-freq_file=paste0(GWAS_name, ".frqx")
-bfile='/lustre/scratch123/hgi/projects/bhf_finemap/imputation/uk10k_1000g_blueprint/plink_genotypes/plink_genotypes'
-# Takes
-#1 frq file
-#2 variant name
+eQTL = args$eqtl
+eqtl_marker_file = args$eqtl_snps
+eqtl_samples_number = args$eqtl_samples
+GWAS = args$gwas
+variant = args$rs
+bfile = args$bfile
+
 GWAS_name = tools::file_path_sans_ext(basename(GWAS))
 eQTL_name = tools::file_path_sans_ext(basename(eQTL))
 eQTL_name = gsub("\\.", "_", eQTL_name)
 
+# freq_file=paste0(GWAS_name, ".frqx")
 # freqs = read_freqs(freq_file)
 
-return_list = load_GWAS(GWAS)
-Full_GWAS_Sum_Stats = return_list$map
+Full_GWAS_Sum_Stats = load_GWAS(GWAS)$map
 Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats)
 single_eqtl1 = load_eqtl(eQTL, eqtl_marker_file)
 

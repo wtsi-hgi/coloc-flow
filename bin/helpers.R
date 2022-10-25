@@ -79,3 +79,15 @@ lift_over_df <- function (df, chain){
     df_new <- dplyr::select(df_new, -end, -width, -strand)
     return(df_new)
 }
+
+thin_out_gwas_data <- function(df, threshold = 1e-5){
+    sign_snps <- dplyr::filter(df, p_value <= threshold)
+    other_snps <- dplyr::filter(df, p_value > threshold)
+    other_snps <- dplyr::slice_sample(other_snps, prop=0.1)
+    rbind(sign_snps, other_snps)
+}
+
+plot_gwas <- function (df){
+    gwas <- thin_out_gwas_data(df)
+    qqman::manhattan(gwas, chr = 'chromosome', bp = 'base_pair_location', snp = 'variant_id', p = 'p_value')
+}

@@ -1,14 +1,23 @@
 #!/usr/bin/env Rscript
-args = commandArgs(trailingOnly=TRUE)
-GWAS = args[1]
-bfile = args[2]
-coloc_input_file = args[3]
+library(optparse)
+library(data.table)
+
+option_list <- list(
+    make_option('--gwas', action="store", help="path to GWAS summary statistic"),
+    make_option('--bfile', action="store", help="path to plink genotypes prefix"),
+    make_option('--input', action="store", help="path to input file"),
+    make_option('--eqtl_snps', action="store", help = "path to eqtl snp_pos.txt file")
+)
+args <- parse_args(OptionParser(option_list=option_list))
+
+GWAS = args$gwas
+bfile = args$bfile
+coloc_input_file = args$input
 # GWAS = 'GCST90014122_buildGRCh37.tsv'
 
 print(GWAS)
 print(bfile)
 
-library(data.table)
 source('dataIO.R')
 source('helpers.R')
 
@@ -17,7 +26,6 @@ Full_GWAS_Sum_Stats = return_list$map
 GWAS_name = return_list$GWAS_name
 Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats)
 
-writeLines(Full_GWAS_Sum_Stats$variant_id, con=paste0(GWAS_name, ".snp.list"))
 Significant_GWAS_Signals$gwas_name = paste(Significant_GWAS_Signals$variant_id, GWAS, sep='--')
 
 # Here we should loop through the input file eQTLs for the particular GWAS and replicate the table so many times
@@ -31,7 +39,7 @@ all_eQTLs_associated_with_this_GWAS = coloc_input[coloc_input$GWAS %like% GWAS_n
 data_list <- lapply(all_eQTLs_associated_with_this_GWAS$eQTL, function(val){
   # Here we reduce the computational testing burden of spining up and reading in same file multiple times
   # by prereading the files here and seeing whether there is a signal in the ceirtain file on the particular chromosomes where GWAS signal is present.
-  single_eqtl1 = load_eqtl(val,Full_GWAS_Sum_Stats)
+  single_eqtl1 = load_eqtl(val, args$eqtl_snps)
   single_eqtl2 = single_eqtl1[single_eqtl1$p_value < eqtl_significance_threshold]
   uq1 = unique(single_eqtl2$chromosome)
   un2 = unique(Significant_GWAS_Signals2$chromosome)
@@ -50,7 +58,3 @@ data_list <- lapply(all_eQTLs_associated_with_this_GWAS$eQTL, function(val){
 Data2 <- rbindlist(data_list)
 
 fwrite(Data2, file=paste0(GWAS_name,"_all_signals.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
-
-plink_cmd <- paste0("plink --bfile ", bfile, "/plink_genotypes --maf 0.0001 --make-bed --freqx --out ", GWAS_name)
-rc <- system(plink_cmd)
-stopifnot(rc == 0L)

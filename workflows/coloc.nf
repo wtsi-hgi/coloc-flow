@@ -32,9 +32,8 @@
 ========================================================================================
 */
 
-include { COLOC_RUN } from '../modules/nf-core/modules/coloc/main'
 include { COLOC_FREQ_AND_SNPS } from '../modules/nf-core/modules/coloc_frq/main'
-include { GWAS_FREQ } from '../modules/nf-core/modules/coloc_frq/main'
+// include { GWAS_FREQ } from '../modules/nf-core/modules/coloc_frq/main'
 include { COLOC_ON_SIG_VARIANTS } from '../modules/nf-core/modules/coloc_sig_variants/main'
 /*
 ========================================================================================
@@ -70,24 +69,17 @@ workflow COLOC {
     // /home/container_user/conda/bin/plink --bfile bfile --extract list_of_snips_455666.snp.list --maf 0.0001 --make-bed --freqx --out 455666
 
 
-    // gcta --bfile 455666 --cojo-p 1e-4 --extract 455666.snp.list --cojo-file 455666_sum.txt --cojo-slct --out 455666_step1"
-    // gcta --bfile 455666  --extract 455666.snp.list  --cojo-file 455666_sum.txt  --cojo-cond 455666_independent.snp --out 455666_step2
-    // gcta --bfile 455666 --cojo-p 1e-4 --extract 455666.snp.list  --cojo-file 455666_sum.txt --cojo-slct --cojo-cond 455666_independent.snp --out 455666_step2
-
     // Calculate frequencies and extract number of significant GWAS hits for each input GWAS sum stats.
-    GWAS_FREQ(params.bfile)
-    COLOC_FREQ_AND_SNPS(input_gwas, params.bfile)
+//     GWAS_FREQ(params.bfile)
+    COLOC_FREQ_AND_SNPS(input_gwas, params.bfile, params.eqtl_snps)
     // Then for each of the GWAS independent SNPs and each of the corresponding eQTLs we generate a new job - we can split this up lated on even more.
-    // COLOC_FREQ_AND_SNPS.out.sig_signals_eqtls.splitCsv(header: true, sep: '\t', by: 1)
-    //     .map { row -> tuple(row.gwas_name2.split('--')[0],row.gwas_name2.split('--')[1],row.gwas_name2.split('--')[2] )}
-    //     .set { variant_id }
     COLOC_FREQ_AND_SNPS.out.sig_signals_eqtls.splitCsv(header: true, sep: '\t', by: 1)
         .map { row -> row.gwas_name2}
         .set { variant_id }
 
-    // Have to run this on each of the eQTL files seperately.
+    // Have to run this on each of the eQTL files separately.
 
-    COLOC_ON_SIG_VARIANTS(variant_id,COLOC_FREQ_AND_SNPS.out.sig_signals.collect(),COLOC_FREQ_AND_SNPS.out.bed_file.collect(),COLOC_FREQ_AND_SNPS.out.frqx.collect(),COLOC_FREQ_AND_SNPS.out.GWAS.collect())
+    COLOC_ON_SIG_VARIANTS(variant_id, params.bfile)
     // variant_id.view()
     // variant_id
     //   .subscribe onNext: {println "variant_id: $it"},

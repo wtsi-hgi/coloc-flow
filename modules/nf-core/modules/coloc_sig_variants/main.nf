@@ -13,23 +13,22 @@ process COLOC_ON_SIG_VARIANTS {
     container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
     input:
         each variant
-        path(sig_signals)
         path(ped_file_folder)
-        path(frx_file)
-        path(GWAS)
 
     output:
-        // path('Done.tmp')
         path('Done.tmp', emit: done)
 
     script:
-    // gwas_name = "${frx_file}".minus(".random").split(/\./)[0]
     gwas_name ="${variant}".split("--")[1]
     eQTL_path ="${variant}".split("--")[2]
     variant_name ="${variant}".split("--")[0]
     """
+        Rscript coloc_sig_variants.R \
+            --gwas ${gwas_name} \
+            --rs ${variant_name} \
+            --bfile ${ped_file_folder} \
+            --eqtl ${eQTL_path} \
+            --eqtl_snps ${params.eqtl_snps}
         echo ${variant_name} > Done.tmp
-        echo ${gwas_name}
-        echo ${eQTL_path}
     """
 }
