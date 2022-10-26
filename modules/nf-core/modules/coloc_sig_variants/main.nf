@@ -13,7 +13,10 @@ process COLOC_ON_SIG_VARIANTS {
     container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
     input:
         each variant
-        path(ped_file_folder)
+        path(ped_file_prefix)
+        path("${ped_file_prefix}.bed")
+        path("${ped_file_prefix}.bim")
+        path("${ped_file_prefix}.fam")
 
     output:
         path('Done.tmp', emit: done)
@@ -26,7 +29,7 @@ process COLOC_ON_SIG_VARIANTS {
         Rscript coloc_sig_variants.R \
             --gwas ${gwas_name} \
             --rs ${variant_name} \
-            --bfile ${ped_file_folder} \
+            --bfile ${ped_file_prefix} \
             --eqtl ${eQTL_path} \
             --eqtl_snps ${params.eqtl_snps}
         echo ${variant_name} > Done.tmp

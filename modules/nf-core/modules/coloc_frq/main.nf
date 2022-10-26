@@ -6,14 +6,12 @@ process COLOC_FREQ_AND_SNPS {
     // publishDir "${params.outdir}/coloc/${GWAS}/${eQTL_path}", mode: "${params.copy_mode}"
     if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
         container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
-        //// container "/software/hgi/containers/mercury_scrna_deconvolution_latest.img"
     } else {
         container "to be replaced"
     }
     container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
     input: 
         path(GWAS)
-        path(bfile)
         path(eqtl_snps)
 
     output:
@@ -28,11 +26,8 @@ process COLOC_FREQ_AND_SNPS {
             // outfile = "${file__anndata}".minus(".h5ad")
             // .split("-").drop(1).join("-")
     """
-        
-       
         coloc_GWAS_frq.R \
             --gwas ${GWAS} \
-            --bfile ${bfile} \
             --input ${params.input_table} \
             --eqtl_snps ${eqtl_snps}
         echo ${gwas_name} > Done.tmp

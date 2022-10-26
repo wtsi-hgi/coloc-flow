@@ -4,19 +4,16 @@ library(data.table)
 
 option_list <- list(
     make_option('--gwas', action="store", help="path to GWAS summary statistic"),
-    make_option('--bfile', action="store", help="path to plink genotypes prefix"),
     make_option('--input', action="store", help="path to input file"),
     make_option('--eqtl_snps', action="store", help = "path to eqtl snp_pos.txt file")
 )
 args <- parse_args(OptionParser(option_list=option_list))
 
 GWAS = args$gwas
-bfile = args$bfile
 coloc_input_file = args$input
 # GWAS = 'GCST90014122_buildGRCh37.tsv'
 
 print(GWAS)
-print(bfile)
 
 source('dataIO.R')
 source('helpers.R')

@@ -71,7 +71,7 @@ workflow COLOC {
 
     // Calculate frequencies and extract number of significant GWAS hits for each input GWAS sum stats.
 //     GWAS_FREQ(params.bfile)
-    COLOC_FREQ_AND_SNPS(input_gwas, params.bfile, params.eqtl_snps)
+    COLOC_FREQ_AND_SNPS(input_gwas, params.eqtl_snps)
     // Then for each of the GWAS independent SNPs and each of the corresponding eQTLs we generate a new job - we can split this up lated on even more.
     COLOC_FREQ_AND_SNPS.out.sig_signals_eqtls.splitCsv(header: true, sep: '\t', by: 1)
         .map { row -> row.gwas_name2}
