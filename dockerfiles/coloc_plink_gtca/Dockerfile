@@ -22,10 +22,13 @@ RUN add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu jammy-c
 
 RUN apt-get install --yes --no-install-recommends r-base
 
-RUN R -e 'install.packages(c("BiocManager", "remotes", "R.utils", "dplyr", "optparse"), repos="https://cloud.r-project.org", Ncpus=4)'
+RUN apt-get install -y libpng-dev libssl-dev liblapack-dev libopenblas-dev
+
+RUN R -e 'install.packages(c("BiocManager", "remotes", "R.utils", "dplyr", "optparse", "tidyr"), repos="https://cloud.r-project.org", Ncpus=4)'
 # RUN R -e 'remotes::install_github("mrcieu/ieugwasr")'
 RUN R -e 'remotes::install_github("chr1swallace/coloc@main",build_vignettes=FALSE)'
-RUN R -e 'BiocManager::install(c("biomaRt", "liftOver), Ncpus=4)'
+
+RUN R -e 'BiocManager::install(c("biomaRt", "liftOver"), Ncpus=4)'
 
 # install plink2
 RUN wget -q https://s3.amazonaws.com/plink2-assets/alpha3/plink2_linux_x86_64_20221024.zip -O /tmp/plink2.zip && \

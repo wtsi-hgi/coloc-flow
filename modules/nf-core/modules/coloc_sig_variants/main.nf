@@ -10,13 +10,11 @@ process COLOC_ON_SIG_VARIANTS {
     } else {
         container "to be replaced"
     }
-    container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
+    container "/lustre/scratch123/hgi/mdt1/projects/bhf_finemap/coloc/pipeline_ip13/coloc-ip13.sif"
     input:
         each variant
-        path(ped_file_prefix)
-        path("${ped_file_prefix}.bed")
-        path("${ped_file_prefix}.bim")
-        path("${ped_file_prefix}.fam")
+        path(GWAS)
+        tuple val(bfile), path(plink_files)
 
     output:
         path('Done.tmp', emit: done)
@@ -26,10 +24,13 @@ process COLOC_ON_SIG_VARIANTS {
     eQTL_path ="${variant}".split("--")[2]
     variant_name ="${variant}".split("--")[0]
     """
-        Rscript coloc_sig_variants.R \
+    cp $projectDir/bin/dataIO.R ./
+    cp $projectDir/bin/cojo.R ./
+    cp $projectDir/bin/helpers.R ./
+        coloc_sig_variants.R \
             --gwas ${gwas_name} \
             --rs ${variant_name} \
-            --bfile ${ped_file_prefix} \
+            --bfile ${bfile} \
             --eqtl ${eQTL_path} \
             --eqtl_snps ${params.eqtl_snps}
         echo ${variant_name} > Done.tmp

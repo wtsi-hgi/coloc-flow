@@ -64,22 +64,20 @@ workflow COLOC {
         .map{row->row.eQTL}.unique()
         .set{input_eQTL}
 
-
-    // maybe should do cojo first
-    // /home/container_user/conda/bin/plink --bfile bfile --extract list_of_snips_455666.snp.list --maf 0.0001 --make-bed --freqx --out 455666
-
-
     // Calculate frequencies and extract number of significant GWAS hits for each input GWAS sum stats.
-//     GWAS_FREQ(params.bfile)
     COLOC_FREQ_AND_SNPS(input_gwas, params.eqtl_snps)
+
     // Then for each of the GWAS independent SNPs and each of the corresponding eQTLs we generate a new job - we can split this up lated on even more.
     COLOC_FREQ_AND_SNPS.out.sig_signals_eqtls.splitCsv(header: true, sep: '\t', by: 1)
         .map { row -> row.gwas_name2}
         .set { variant_id }
 
     // Have to run this on each of the eQTL files separately.
-
-    COLOC_ON_SIG_VARIANTS(variant_id, params.bfile)
+    COLOC_ON_SIG_VARIANTS(
+        variant_id,
+        COLOC_FREQ_AND_SNPS.out.GWAS.collect(),
+        Channel.fromFilePairs("${params.bfile}.{bed,bim,fam}", checkIfExists: true, size: 3)
+    )
     // variant_id.view()
     // variant_id
     //   .subscribe onNext: {println "variant_id: $it"},

@@ -18,6 +18,7 @@ process COLOC_FREQ_AND_SNPS {
         // path('Done.tmp')
         path('*.sig_signals.list', emit: sig_signals)
         path('*all_signals.tsv', emit: sig_signals_eqtls)
+        path(GWAS, emit: GWAS)
 
 
     script:
@@ -26,6 +27,8 @@ process COLOC_FREQ_AND_SNPS {
             // outfile = "${file__anndata}".minus(".h5ad")
             // .split("-").drop(1).join("-")
     """
+        cp $projectDir/bin/dataIO.R ./
+        cp $projectDir/bin/helpers.R ./
         coloc_GWAS_frq.R \
             --gwas ${GWAS} \
             --input ${params.input_table} \

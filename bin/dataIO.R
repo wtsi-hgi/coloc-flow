@@ -1,7 +1,10 @@
+#!/usr/bin/env Rscript
 library(data.table)
 requireNamespace('dplyr')
+requireNamespace('tidyr')
 
 load_GWAS <- function(GWAS){
+  message(paste('Reading GWAS:', GWAS))
 
   GWAS_ext = tools::file_ext(GWAS)
   GWAS_name = tools::file_path_sans_ext(basename(GWAS))
@@ -56,6 +59,7 @@ load_GWAS <- function(GWAS){
 
 #### Eqtl data
 load_eqtl <- function(eqtl.file, marker.file, build = 'hg38'){
+    message(paste("Reading eQTL:", eqtl.file))
     build_choices <- c('hg19', 'hg38')
     build <- match.arg(build, choices = build_choices)
 
@@ -84,6 +88,7 @@ load_eqtl <- function(eqtl.file, marker.file, build = 'hg38'){
 
 # reads plink's frq(x) file
 read_freqs <- function (filename){
+    message(paste("Reading freqs: ", filename))
     ext <- tools::file_ext(filename)
     stopifnot(ext %in% c('frq', 'frqx'))
 
