@@ -10,7 +10,9 @@ option_list <- list(
     make_option('--bfile', action="store", help="path to plink genotypes prefix"),
     make_option('--eqtl', action="store", help="path to eqtl data"),
     make_option('--eqtl_snps', action="store", help = "path to eqtl snp_pos.txt file"),
-    make_option('--eqtl_samples', action="store", default=192, help = "number of samples in eQTL study")
+    make_option('--eqtl_samples', action="store", default=192, help = "number of samples in eQTL study"),
+    make_option('--plink2_bin', action="store", default=NULL, help = "path to custom plink2 binary"),
+    make_option('--gcta_bin', action="store", default=NULL, help = "path to custom gcta binary")
 )
 args <- parse_args(OptionParser(option_list=option_list))
 
@@ -24,6 +26,8 @@ eqtl_samples_number = args$eqtl_samples
 GWAS = args$gwas
 variant = args$rs
 bfile = args$bfile
+plink2_bin = args$plink2_bin
+gcta_bin = args$gcta_bin
 
 GWAS_name = tools::file_path_sans_ext(basename(GWAS))
 eQTL_name = tools::file_path_sans_ext(basename(eQTL))
@@ -112,7 +116,6 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
                                                 lead_snp = GWAS_signal)
     # some SNP(s) have large difference of allele frequency between the GWAS summary data and the reference sample, hence are removed.
     D1 <- prepare_coloc_table(conditioned_dataset)
-    D1$N <- unique(Cojo_Dataframe$N)
 
     for (qtl1 in all_unique_eQTL_signals_in_this_GWAS_range){
         single_eqtl = genes_of_interest[genes_of_interest$gene==qtl1, ]
@@ -157,14 +160,16 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
                 )
 
                 D2 <- prepare_coloc_table(conditioned_dataset_eQTL)
-                D2$N <- eqtl_samples_number
 
-                SNPs_To_Colocalise = intersect(D1$snp,D2$snp)
-                D1_col = D1[D1$snp %in% SNPs_To_Colocalise,]
-                D2_col = D2[D2$snp %in% SNPs_To_Colocalise,]
+                SNPs_To_Colocalise = intersect(D1$snp, D2$snp)
+                D1_col = D1[D1$snp %in% SNPs_To_Colocalise, ]
+                D2_col = D2[D2$snp %in% SNPs_To_Colocalise, ]
+
+                D1_l <- prepare_coloc_list(D1_col, N = first(Cojo_Dataframe$N))
+                D2_l <- prepare_coloc_list(D2_col, N = eqtl_samples_number)
 
                 # dataset1 and dataset2 should contain the same snps in the same order, or should contain snp names through which the common snps can be identified
-                colo.res=coloc.abf(D1, D2)
+                colo.res=coloc.abf(D1_l, D2_l)
                 colo_res=data.frame(t(colo.res$summary))
                 colo_res$GWAS_hit1=''
                 colo_res$eQTL_hit2=''
@@ -178,17 +183,19 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
                 if (colo_res$PP.H4.abf>0.5){
 
                     coloc_results=rbind(coloc_results,colo_res)
-                    jpeg(paste(variant_id,'_',qtl1,'_',chromosome1,'__GWAS_Conditioned_on__',GWAS_signal,'__eQTL_Conditioned_on__',independent_eqtl_SNP_to_contition_on,'_coloc.jpg',sep=''))
-                        sensitivity(colo.res,"H4 > 0.5")
+                    jpeg(paste(variant_id, qtl1, chromosome1, '_GWAS_Conditioned_on_', GWAS_signal, '_eQTL_Conditioned_on_', independent_eqtl_SNP_to_contition_on, 'coloc.jpg', sep='_'))
+                        sensitivity(colo.res, "H4 > 0.5")
                     dev.off()
+
                     if(nrow(colo_res)>0){
-                    jpeg(paste(variant_id,'_',qtl1,'_',chromosome1,'__GWAS_Conditioned_on__',GWAS_signal,'__eQTL_Conditioned_on__',independent_eqtl_SNP_to_contition_on,'condiotioned_rplowt.jpg',sep=''))
+                    jpeg(paste(variant_id, qtl1, chromosome1, '_GWAS_Conditioned_on_', GWAS_signal, '_eQTL_Conditioned_on_', independent_eqtl_SNP_to_contition_on, 'condiotioned_rplowt.jpg', sep='_'))
                         par(mfrow=c(2,1))
-                        plot(D2_col$position,-log10(D2_col$pvalues),col=ifelse(D2_col$snp %in% c(independent_eqtl_SNP_to_contition_on), 'red', 'black'),pch=10,xlim = c(range_min$base_pair_location-1000000,range_max$base_pair_location+1000000),ylim=c(0,round(max(-log10(D2_col$pvalues))+1)), lty = 0.3,lwd=1)
+                        coloc::plot_dataset(D1, highlight_list = GWAS_signal, show_legend = F)
                         par(new=TRUE)
                         print("Outcome")
+
                         title(variant_id, line = -2, outer = TRUE)
-                        plot(D1_col$position,-log10(D1_col$pvalues),col=ifelse(D1_col$snp %in% c(GWAS_signal), 'red', 'black'),pch=10,xlim = c(range_min$base_pair_location-1000000,range_max$base_pair_location+1000000),ylim=c(0,round(max(-log10(D1_col$pvalues))+1)), lty = 0.3,lwd=1)
+                        coloc::plot_dataset(D2, highlight_list = independent_eqtl_SNP_to_contition_on, show_legend = F)
                         par(new=TRUE)
                         print("eQTL")
                     dev.off()

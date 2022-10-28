@@ -9,7 +9,7 @@ process COLOC_FREQ_AND_SNPS {
     } else {
         container "to be replaced"
     }
-    container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
+    container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/pipeline_ip13/coloc-ip13.sif"
     input: 
         path(GWAS)
         path(eqtl_snps)

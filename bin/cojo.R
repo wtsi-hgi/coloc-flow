@@ -159,8 +159,14 @@ prepare_coloc_table <- function (df){
     names <- intersect(rules, colnames(df))
     rename_rules <- rules[rules %in% names]
     D1 <- dplyr::select(df, !!rename_rules)
-    D1$type = "quant"
     D1$varbeta = D1$varbeta^2
     D1 = na.omit(D1)
     return(D1)
+}
+
+prepare_coloc_list <- function (coloc_df, N, type = 'quant'){
+    l <- as.list(coloc_df)
+    l$type <- type
+    l$N <- N
+    return(l)
 }
