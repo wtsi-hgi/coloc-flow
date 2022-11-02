@@ -58,24 +58,18 @@ load_GWAS <- function(GWAS){
 }
 
 #### Eqtl data
-load_eqtl <- function(eqtl.file, marker.file, build = 'hg38'){
+load_eqtl <- function(eqtl.file, marker.file, marker.data, build = 'hg38'){
     message(paste("Reading eQTL:", eqtl.file))
-    build_choices <- c('hg19', 'hg38')
-    build <- match.arg(build, choices = build_choices)
 
     # https://zenodo.org/record/6104982
     eqtl <- fread(eqtl.file, col.names = c("gene", "SNP", "distance_to_TSS", "p", "beta"))
     eqtl$se <- abs(eqtl$beta) / sqrt(qchisq(eqtl$p, df = 1, lower.tail = F))
 
-    position_column_name <- paste0('SNP_id_', build)
-    another_column_name <- paste0('SNP_id_', setdiff(build_choices, build))
+    if(missing(marker.data)){
+      marker.data <- read_eqtl_marker_file(marker.file, build)
+    }
 
-    snps <- fread(marker.file, drop = another_column_name)
-
-    single_eqtl <- dplyr::inner_join(eqtl, snps, by = 'SNP')
-    single_eqtl <- tidyr::separate(single_eqtl, col = position_column_name, sep = ':', convert = T,
-                                   into = c('chromosome', 'base_pair_location'))
-    single_eqtl$chromosome <- as.integer(gsub('chr', '', single_eqtl$chromosome))
+    single_eqtl <- dplyr::inner_join(eqtl, marker.data, by = 'SNP')
 
     #eQTL col rename
     single_eqtl <- dplyr::rename(single_eqtl,
@@ -84,6 +78,22 @@ load_eqtl <- function(eqtl.file, marker.file, build = 'hg38'){
       standard_error = se
     )
     return (single_eqtl)
+}
+
+read_eqtl_marker_file <- function (marker.file, build = 'hg38'){
+    message(paste("Reading file:", marker.file))
+    build_choices <- c('hg19', 'hg38')
+    build <- match.arg(build, choices = build_choices)
+
+    position_column_name <- paste0('SNP_id_', build)
+    another_column_name <- paste0('SNP_id_', setdiff(build_choices, build))
+
+    snps <- fread(marker.file, drop = another_column_name)
+    single_eqtl <- tidyr::separate(snps, col = position_column_name, sep = ':', convert = T,
+                                   into = c('chromosome', 'base_pair_location'))
+    single_eqtl$chromosome <- as.integer(gsub('chr', '', single_eqtl$chromosome))
+
+    return(single_eqtl)
 }
 
 # reads plink's frq(x) file

@@ -14,13 +14,27 @@ ensembl37 <- biomaRt::useEnsembl(biomart = "snps", dataset = 'hsapiens_snp', ver
 
 # retrieve SNP position from BioMart
 get_snp_position <- function (rs, mart){
-    position <- biomaRt::getBM(
-        mart = mart,
-        attributes = 'chrom_start',
-        filters = 'snp_filter',
-        values = rs
-    )
-    return(as.integer(position))
+    filter_values <- c('snp_filter', 'snp_synonym_filter')
+    for(filter_value in filter_values){
+        response <- biomaRt::getBM(
+            mart = mart,
+            attributes = c('chr_name', 'chrom_start', 'allele'),
+            filters = filter_value,
+            values = rs
+        )
+        if(nrow(response != 0)){
+            break
+        }
+    }
+    if(nrow(response) > 1){
+        response <- dplyr::filter(response, chr_name %in% c(1:22, 'X', 'Y', 'XY', 'M', 'MT'))
+    }
+    position <- as.integer(response$chrom_start)
+    alleles <- unlist(strsplit(response$allele, '/'))
+    if(any(nchar(alleles) > 1)){
+        position <- position - 1  # in VCF indels have position one nucleotide less
+    }
+    return(position)
 }
 
 # reveals SNP position build version (hg37/hg38)
@@ -36,6 +50,20 @@ get_snp_build_version <- function (rs, pos, mart37 = ensembl37, mart38 = ensembl
         return('hg38')
 
     return(NULL)
+}
+
+# reveals dataframe build version (hg37/hg38)
+get_df_build_version <- function (df, mart37 = ensembl37, mart38 = ensembl38){
+    df_rs <- dplyr::filter(df,
+      startsWith(variant_id, "rs"),
+      nchar(effect_allele) == 1,
+      nchar(other_allele) == 1
+    )
+    stopifnot(nrow(df_rs) > 0)
+    row <- dplyr::slice_sample(df_rs, n = 1)
+    message(paste('Chosing', row$variant_id, 'to reveal genome build'))
+    get_snp_build_version(rs = row$variant_id, pos = row$base_pair_location,
+                          mart37 = mart37, mart38 = mart38)
 }
 
 # downloads and loads liftOver chain-file

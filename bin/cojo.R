@@ -111,6 +111,12 @@ run_cojo_on_locus <- function (gcta_bin = NULL, plink2_bin = NULL,
 }
 
 # call plink program
+run_plink <- function (bin = NULL, args){
+    if (is.null(bin)) bin <- 'plink'
+    run_tool(bin = bin, args = args)
+}
+
+# call plink2 program
 run_plink2 <- function (bin = NULL, args){
     if (is.null(bin)) bin <- 'plink2'
     run_tool(bin = bin, args = args)
@@ -133,6 +139,36 @@ extract_locus <- function (bin = NULL, genotypes_prefix, chrom, start, end, out_
     file.remove(range_filename)
 
     return(out_prefix)
+}
+
+get_ld_matrix <- function (plink_bin = NULL, genotypes_prefix, markers, out_prefix){
+    marker_filename <- tempfile(tmpdir = '.', fileext = '.txt')
+    writeLines(markers, marker_filename)
+
+    if(missing(out_prefix)){
+        out_prefix <- paste(genotypes_prefix, 'r', sep = '-')
+    }
+
+    plink_args <- c(
+        '--bfile', genotypes_prefix,
+        '--extract', marker_filename,
+        '--r', 'square', 'gz',
+        '--make-just-bim',
+        '--out', out_prefix
+    )
+    run_plink(bin = plink_bin, args = plink_args)
+    file.remove(marker_filename)
+
+    ld_filename <- paste0(out_prefix, '.ld.gz')
+    bim_filename <- paste0(out_prefix, '.bim')
+
+    m <- as.matrix(fread(ld_filename))
+    cols <- unlist(fread(bim_filename, select = 2))
+
+    colnames(m) <- cols
+    rownames(m) <- cols
+
+    return(m)
 }
 
 combine_cojo_results <- function (independent_signals, conditional_signals, lead_snp){

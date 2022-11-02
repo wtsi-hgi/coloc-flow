@@ -30,8 +30,8 @@ plink2_bin = args$plink2_bin
 gcta_bin = args$gcta_bin
 
 GWAS_name = tools::file_path_sans_ext(basename(GWAS))
-eQTL_name = tools::file_path_sans_ext(basename(eQTL))
-eQTL_name = gsub("\\.", "_", eQTL_name)
+eQTL_name = strsplit(tools::file_path_sans_ext(basename(eQTL)), "\\.")[[1]]
+eQTL_name = paste(eQTL_name[1:length(eQTL_name)-1], collapse = "_")
 
 # freq_file=paste0(GWAS_name, ".frqx")
 # freqs = read_freqs(freq_file)
@@ -39,10 +39,6 @@ eQTL_name = gsub("\\.", "_", eQTL_name)
 Full_GWAS_Sum_Stats = load_GWAS(GWAS)$map
 Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats)
 single_eqtl1 = load_eqtl(eQTL, eqtl_marker_file)
-
-dataset.list=list()
-dataset.list$results=list()
-coloc_results=c()
 
 row1 = Significant_GWAS_Signals[Significant_GWAS_Signals$variant_id == variant,]
 base_pair_location <- row1[["base_pair_location"]]
@@ -58,7 +54,7 @@ variants_of_interest <- dplyr::filter(Full_GWAS_Sum_Stats,
     between(base_pair_location, locus_start, locus_end)
 )
 
-variant_build <- get_snp_build_version(rs = variant_id, pos = base_pair_location)
+variant_build <- get_df_build_version(df = variants_of_interest)
 if(variant_build != 'hg38'){
     message(paste('Convert GWAS positions from', variant_build, 'to hg38'))
     ch <- load_chain_file(from = variant_build, to = 'hg38')
@@ -99,6 +95,7 @@ cojo_out <- run_cojo(
 
 independent_SNPs = fread(cojo_out$independent_signals)
 
+coloc_results <- list()
 for( i_GWAS in 1:nrow(independent_SNPs)){
     GWAS_signal = independent_SNPs[i_GWAS]$SNP
     independent_markerfile <- paste0(GWAS_signal, "_independent.snp")
@@ -171,18 +168,24 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
                 # dataset1 and dataset2 should contain the same snps in the same order, or should contain snp names through which the common snps can be identified
                 colo.res=coloc.abf(D1_l, D2_l)
                 colo_res=data.frame(t(colo.res$summary))
-                colo_res$GWAS_hit1=''
-                colo_res$eQTL_hit2=''
-                colo_res$GWAS_Conditioned_SNP=GWAS_signal
-                colo_res$eQTL=qtl1
-                colo_res$eQTL_Conditioned_SNP=independent_eqtl_SNP_to_contition_on
-                colo_res$GWAS_Range=paste(locus_start, ':', locus_end)
                 print('|||Coloc result:|||')
                 print(colo_res)
 
                 if (colo_res$PP.H4.abf>0.5){
 
-                    coloc_results=rbind(coloc_results,colo_res)
+                    colo_df <- data.table(
+                      gwas_name = GWAS_name,
+                      gwas_input = variant,
+                      locus = paste(chromosome1, locus_start, locus_end, sep = '-'),
+                      gwas_lead = GWAS_signal,
+                      eqtl_name= eQTL_name,
+                      gene = qtl1,
+                      eqtl_lead = independent_eqtl_SNP_to_contition_on,
+                      pp_h4 = colo.res$summary[['PP.H4.abf']],
+                      colocolised_snp = subset(colo.res$results, SNP.PP.H4>0.01)$snp
+                    )
+
+                    coloc_results <- append(coloc_results, colo_df)
                     jpeg(paste(variant_id, qtl1, chromosome1, '_GWAS_Conditioned_on_', GWAS_signal, '_eQTL_Conditioned_on_', independent_eqtl_SNP_to_contition_on, 'coloc.jpg', sep='_'))
                         sensitivity(colo.res, "H4 > 0.5")
                     dev.off()
@@ -190,12 +193,16 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
                     if(nrow(colo_res)>0){
                     jpeg(paste(variant_id, qtl1, chromosome1, '_GWAS_Conditioned_on_', GWAS_signal, '_eQTL_Conditioned_on_', independent_eqtl_SNP_to_contition_on, 'condiotioned_rplowt.jpg', sep='_'))
                         par(mfrow=c(2,1))
-                        coloc::plot_dataset(D1, highlight_list = GWAS_signal, show_legend = F)
+                        coloc::plot_dataset(D1, highlight_list = list(
+                          cond = GWAS_signal, coloc = colo_df$colocolised_snp)
+                        )
                         par(new=TRUE)
                         print("Outcome")
 
                         title(variant_id, line = -2, outer = TRUE)
-                        coloc::plot_dataset(D2, highlight_list = independent_eqtl_SNP_to_contition_on, show_legend = F)
+                        coloc::plot_dataset(D2, highlight_list = list(
+                          cond = independent_eqtl_SNP_to_contition_on, coloc = colo_df$colocolised_snp)
+                        )
                         par(new=TRUE)
                         print("eQTL")
                     dev.off()
@@ -205,3 +212,6 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
         }
     }
 }
+
+coloc_df <- rbindlist(coloc_results)
+fwrite(coloc_df, 'coloc_results.csv')

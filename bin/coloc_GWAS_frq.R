@@ -33,10 +33,12 @@ Significant_GWAS_Signals2 = copy(Significant_GWAS_Signals)
 coloc_input = fread(coloc_input_file, header=TRUE)
 all_eQTLs_associated_with_this_GWAS = coloc_input[coloc_input$GWAS %like% GWAS_name, ]
 
+eqtl_marker_data <- read_eqtl_marker_file(args$eqtl_snps)
+
 data_list <- lapply(all_eQTLs_associated_with_this_GWAS$eQTL, function(val){
   # Here we reduce the computational testing burden of spining up and reading in same file multiple times
   # by prereading the files here and seeing whether there is a signal in the ceirtain file on the particular chromosomes where GWAS signal is present.
-  single_eqtl1 = load_eqtl(val, args$eqtl_snps)
+  single_eqtl1 = load_eqtl(val, marker.data = eqtl_marker_data)
   single_eqtl2 = single_eqtl1[single_eqtl1$p_value < eqtl_significance_threshold]
   uq1 = unique(single_eqtl2$chromosome)
   un2 = unique(Significant_GWAS_Signals2$chromosome)
