@@ -192,7 +192,7 @@ prepare_coloc_table <- function (df){
         snp = 'variant_id', chr = 'chromosome', position = 'base_pair_location',
         varbeta = 'standard_error', pvalues = 'p_value', 'beta', MAF = 'A1_FREQ', 'N',
         snp = 'SNP', chr = 'Chr', position = 'bp',
-        beta = 'bC', varbeta = 'bC_se', pvalues = 'pC', MAF = 'freq'
+        beta = 'bC', varbeta = 'bC_se', pvalues = 'pC', MAF = 'freq', 'MAF'
     )
     names <- intersect(rules, colnames(df))
     rename_rules <- rules[rules %in% names]

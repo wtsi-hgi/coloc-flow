@@ -68,15 +68,22 @@ get_df_build_version <- function (df, mart37 = ensembl37, mart38 = ensembl38){
                           mart37 = mart37, mart38 = mart38)
 }
 
-# downloads and loads liftOver chain-file
+# looks-up locally or downloads liftOver chain-file, then loads it
 load_chain_file <- function (from = 'hg19', to = 'hg38'){
     filename <- paste0(from, "To", stringr::str_to_title(to), ".over.chain")
-    if(!file.exists(filename)){
+    folders <- c('.', '/lustre/scratch125/humgen/resources/liftover')
+
+    paths <- file.path(folders, filename)
+    existed <- file.exists(paths)
+
+    if(!any(existed)){
         gz_filename <- paste(filename, 'gz', sep = '.')
         message(paste("Downloading", gz_filename))
         url <- file.path("https://hgdownload.cse.ucsc.edu/goldenpath", from, "liftOver", gz_filename)
         curl::curl_fetch_disk(url, gz_filename)
         R.utils::gunzip(gz_filename, remove = T)
+    } else{
+        filename <- paths[existed][1]
     }
     rtracklayer::import.chain(filename)
 }
@@ -123,8 +130,8 @@ plot_gwas <- function (df){
 }
 
 plot_ggwas <- function (df, position_column, pvalue_column, snp_column, highlight_snps = NULL){
-    position <- enquo(position_column)
-    pvalue <- enquo(pvalue_column)
+    position <- dplyr::enquo(position_column)
+    pvalue <- dplyr::enquo(pvalue_column)
     p <- ggplot2::ggplot(df, ggplot2::aes(x = !!position, y = -log10(!!pvalue))) +
       ggplot2::geom_point() + ggplot2::theme_bw() +
       ggplot2::scale_x_continuous(labels = ~ paste0(.x / 1e6, 'Mb'))
@@ -134,4 +141,37 @@ plot_ggwas <- function (df, position_column, pvalue_column, snp_column, highligh
     }
 
     p
+}
+
+assign_group <- function(v){
+    g <- 1
+    gs <- c(g)
+    if(length(v) > 1){
+        for (e in v[2:length(v)]){
+            if(!e) g <- g + 1
+            gs <- append(gs, g)
+        }
+    }
+    return(gs)
+}
+
+# split gwas significant markers into windows
+make_gwas_groups <- function (df, window = 1e6){
+    require(dplyr)
+    df %>%
+        group_by(chromosome) %>%
+        arrange(base_pair_location) %>%
+        mutate(overlap = (base_pair_location - lag(base_pair_location)) < window) %>%
+        mutate(group = assign_group(overlap)) %>%
+        group_by(chromosome, group) %>%
+        summarise(group_start = min(base_pair_location),
+                  group_end = max(base_pair_location),
+                  .groups = 'drop') %>%
+        mutate(group_length = group_end - group_start,
+               group_id = 1:n()) %>%
+        select(-group) -> groups
+
+    stopifnot(all(groups$group_length < 2*window))
+    setDT(groups, key = c("chromosome", "group_start", "group_end"))
+    return(groups)
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env Rscript
 library(optparse)
 library(data.table)
+library(dplyr)
 
 option_list <- list(
     make_option('--gwas', action="store", help="path to GWAS summary statistic"),
@@ -11,7 +12,6 @@ args <- parse_args(OptionParser(option_list=option_list))
 
 GWAS = args$gwas
 coloc_input_file = args$input
-# GWAS = 'GCST90014122_buildGRCh37.tsv'
 
 print(GWAS)
 
@@ -22,13 +22,13 @@ return_list = load_GWAS(GWAS)
 Full_GWAS_Sum_Stats = return_list$map
 GWAS_name = return_list$GWAS_name
 Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats)
+groups <- make_gwas_groups(Significant_GWAS_Signals)
 
 Significant_GWAS_Signals$gwas_name = paste(Significant_GWAS_Signals$variant_id, GWAS, sep='--')
 
 # Here we should loop through the input file eQTLs for the particular GWAS and replicate the table so many times
 
 fwrite(Significant_GWAS_Signals, file=paste0(GWAS_name,".sig_signals.list"), sep = "\t", quote = FALSE, row.names = FALSE)
-# GWAS_name='GCST90014122_buildGRCh37'
 Significant_GWAS_Signals2 = copy(Significant_GWAS_Signals)
 coloc_input = fread(coloc_input_file, header=TRUE)
 all_eQTLs_associated_with_this_GWAS = coloc_input[coloc_input$GWAS %like% GWAS_name, ]
@@ -47,11 +47,20 @@ data_list <- lapply(all_eQTLs_associated_with_this_GWAS$eQTL, function(val){
       # We only bind the eQTL file if both contain a signal on a specific chromosome.
       # furthermore we should only select the variants that are on particular chromosomes for the analysis.
       Significant_GWAS_Signals_new = Significant_GWAS_Signals2[Significant_GWAS_Signals2$chromosome %in% uq1, ]
-      Significant_GWAS_Signals_new$gwas_name2 = paste(Significant_GWAS_Signals_new$gwas_name, val, sep='--')
+
+      # from each window of significant markers choose the middle one
+      data.table::foverlaps(Significant_GWAS_Signals_new, groups,
+                      type = 'within',
+                      by.x = c('chromosome', 'base_pair_location', 'base_pair_location_end')) %>%
+          group_by(group_id) %>%
+          arrange(base_pair_location) %>%
+          summarise(variant_id = variant_id[ceiling(n()/2)]) -> representative_snps
+      representative_snps$gwas_name = paste(representative_snps$variant_id, GWAS, sep='--')
+      representative_snps$gwas_name2 = paste(representative_snps$gwas_name, val, sep='--')
   } else {
-      Significant_GWAS_Signals_new <- data.table()
+      representative_snps <- data.table()
   }
-  return(Significant_GWAS_Signals_new)
+  return(representative_snps)
 })
 
 Data2 <- rbindlist(data_list)
