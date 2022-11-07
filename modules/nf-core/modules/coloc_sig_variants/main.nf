@@ -26,9 +26,9 @@ process COLOC_ON_SIG_VARIANTS {
     eQTL_path ="${variant}".split("--")[2]
     variant_name ="${variant}".split("--")[0]
     """
-    cp $projectDir/bin/dataIO.R ./
-    cp $projectDir/bin/cojo.R ./
-    cp $projectDir/bin/helpers.R ./
+    ln -s $projectDir/bin/dataIO.R ./dataIO.R
+    ln -s $projectDir/bin/cojo.R ./cojo.R
+    ln -s $projectDir/bin/helpers.R ./helpers.R
         coloc_sig_variants.R \
             --gwas ${gwas_name} \
             --rs ${variant_name} \

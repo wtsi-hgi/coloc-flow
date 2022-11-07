@@ -33,9 +33,6 @@ GWAS_name = tools::file_path_sans_ext(basename(GWAS))
 eQTL_name = strsplit(tools::file_path_sans_ext(basename(eQTL)), "\\.")[[1]]
 eQTL_name = paste(eQTL_name[1:length(eQTL_name)-1], collapse = "_")
 
-# freq_file=paste0(GWAS_name, ".frqx")
-# freqs = read_freqs(freq_file)
-
 Full_GWAS_Sum_Stats = load_GWAS(GWAS)$map
 Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats)
 single_eqtl1 = load_eqtl(eQTL, eqtl_marker_file)
@@ -70,7 +67,7 @@ genes_of_interest <- dplyr::filter(single_eqtl1,
     chromosome == chromosome1,
     between(base_pair_location, locus_start, locus_end)
 )
-all_unique_eQTL_signals_in_this_GWAS_range = unique(genes_of_interest$gene)
+eqtl_genes <- unique(genes_of_interest$gene)
 
 cojo_filename <- paste0(variant_id, '_', GWAS_name, "_sum.txt")
 fwrite(Cojo_Dataframe, file = cojo_filename, row.names = F, quote = F, sep = "\t")
@@ -82,6 +79,7 @@ extract_locus(
     chrom = chromosome1,
     start = locus_start,
     end = locus_end,
+    filters = c('--maf', '0.01'),
     out_prefix = locus_filename
 )
 
@@ -89,32 +87,31 @@ cojo_out <- run_cojo(
     bin = gcta_bin,
     bfile = locus_filename,
     summary_stat = cojo_filename,
-    pvalue = gwas_significance_threshold,
+    pvalue = cojo_strict_threshold,
     out_prefix = paste(variant_id, GWAS_name, "step1", sep = "_")
 )
 
-independent_SNPs = fread(cojo_out$independent_signals)
-
 coloc_results <- list()
-for( i_GWAS in 1:nrow(independent_SNPs)){
-    GWAS_signal = independent_SNPs[i_GWAS]$SNP
+independent_SNPs <- fread(cojo_out$independent_signals)
+
+for( GWAS_signal in independent_SNPs$SNP){
     independent_markerfile <- paste0(GWAS_signal, "_independent.snp")
-    writeLines(GWAS_signal, con = independent_markerfile)
+    all_but_one <- setdiff(independent_SNPs$SNP, GWAS_signal)
+    writeLines(all_but_one, con = independent_markerfile)
     cojo_cond_out <- run_cojo(
         bin = gcta_bin,
         bfile = locus_filename,
         summary_stat = cojo_filename,
-        pvalue = gwas_significance_threshold,
+        pvalue = cojo_strict_threshold,
         conditional_markers = independent_markerfile,
         out_prefix = paste(variant_id, GWAS_name, "step2", sep = '_')
     )
-    conditioned_dataset <- combine_cojo_results(independent_signals = cojo_out$independent_signals,
-                                                conditional_signals = cojo_cond_out$conditional_analysis,
-                                                lead_snp = GWAS_signal)
+
+    conditioned_dataset <- fread(cojo_cond_out$conditional_analysis)
     # some SNP(s) have large difference of allele frequency between the GWAS summary data and the reference sample, hence are removed.
     D1 <- prepare_coloc_table(conditioned_dataset)
 
-    for (qtl1 in all_unique_eQTL_signals_in_this_GWAS_range){
+    for (qtl1 in eqtl_genes){
         single_eqtl = genes_of_interest[genes_of_interest$gene==qtl1, ]
         single_eqtl2 = single_eqtl
         rownames(single_eqtl2) <- single_eqtl2$SNP
@@ -130,32 +127,26 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
                 bin = gcta_bin,
                 bfile = locus_filename,
                 summary_stat = eqtl_summary_file,
-                pvalue = eqtl_significance_threshold,
+                pvalue = cojo_strict_threshold,
                 out_prefix = paste(variant_id, qtl1, eQTL_name, "eqtl_step1", sep = "_")
             )
             independent_SNPs_eQTL <- fread(eqtl_cojo_out$independent_signals)
 
-            for( i_eQTL in 1:nrow(independent_SNPs_eQTL)){
-                print(i_eQTL)
-                independent_eqtl_SNP_to_contition_on = independent_SNPs_eQTL[i_eQTL]$SNP
+            for( independent_eqtl_SNP_to_contition_on in independent_SNPs_eQTL$SNP){
                 eqtl_independant_markerfile <- paste0(independent_eqtl_SNP_to_contition_on, "_eqtl_independent.snp")
-                writeLines(independent_eqtl_SNP_to_contition_on, con = eqtl_independant_markerfile)
+                all_but_one_eqtl <- setdiff(independent_SNPs_eQTL$SNP, independent_eqtl_SNP_to_contition_on)
+                writeLines(all_but_one_eqtl, con = eqtl_independant_markerfile)
 
                 eqtl_cond_cojo_out <- run_cojo(
                     bin = gcta_bin,
                     bfile = locus_filename,
                     summary_stat = eqtl_summary_file,
-                    pvalue = eqtl_significance_threshold,
+                    pvalue = cojo_strict_threshold,
                     conditional_markers = eqtl_independant_markerfile,
                     out_prefix = paste(variant_id, qtl1, eQTL_name, independent_eqtl_SNP_to_contition_on, "eqtl_step2", sep = "_")
                 )
 
-                conditioned_dataset_eQTL <- combine_cojo_results(
-                    independent_signals = eqtl_cojo_out$independent_signals,
-                    conditional_signals = eqtl_cond_cojo_out$conditional_analysis,
-                    lead_snp = independent_eqtl_SNP_to_contition_on
-                )
-
+                conditioned_dataset_eQTL <- fread(eqtl_cond_cojo_out$conditional_analysis)
                 D2 <- prepare_coloc_table(conditioned_dataset_eQTL)
 
                 SNPs_To_Colocalise = intersect(D1$snp, D2$snp)
@@ -166,12 +157,15 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
                 D2_l <- prepare_coloc_list(D2_col, N = eqtl_samples_number)
 
                 # dataset1 and dataset2 should contain the same snps in the same order, or should contain snp names through which the common snps can be identified
-                colo.res=coloc.abf(D1_l, D2_l)
+                colo.res <- coloc.abf(D1_l, D2_l)
                 colo_res=data.frame(t(colo.res$summary))
                 print('|||Coloc result:|||')
                 print(colo_res)
 
-                if (colo_res$PP.H4.abf>0.5){
+                if (colo_res$PP.H4.abf > coloc_threshold){
+
+                    fig1_filename <- paste(variant_id, qtl1, chromosome1, '_GWAS_Conditioned_on_', GWAS_signal, '_eQTL_Conditioned_on_', independent_eqtl_SNP_to_contition_on, 'coloc.jpg', sep='_')
+                    fig2_filename <- paste(variant_id, qtl1, chromosome1, '_GWAS_Conditioned_on_', GWAS_signal, '_eQTL_Conditioned_on_', independent_eqtl_SNP_to_contition_on, 'condiotioned_rplowt.jpg', sep='_')
 
                     colo_df <- data.table(
                       gwas_name = GWAS_name,
@@ -182,16 +176,18 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
                       gene = qtl1,
                       eqtl_lead = independent_eqtl_SNP_to_contition_on,
                       pp_h4 = colo.res$summary[['PP.H4.abf']],
-                      colocolised_snp = subset(colo.res$results, SNP.PP.H4>0.01)$snp
+                      colocolised_snp = subset(colo.res$results, SNP.PP.H4>0.01)$snp,
+                      figure_data = fig2_filename,
+                      figure_coloc = fig1_filename
                     )
 
-                    coloc_results <- append(coloc_results, colo_df)
-                    jpeg(paste(variant_id, qtl1, chromosome1, '_GWAS_Conditioned_on_', GWAS_signal, '_eQTL_Conditioned_on_', independent_eqtl_SNP_to_contition_on, 'coloc.jpg', sep='_'))
-                        sensitivity(colo.res, "H4 > 0.5")
+                    coloc_results <- append(coloc_results, list(colo_df))
+                    jpeg(fig1_filename)
+                        sensitivity(colo.res, paste0("H4 > ", coloc_threshold))
                     dev.off()
 
                     if(nrow(colo_res)>0){
-                    jpeg(paste(variant_id, qtl1, chromosome1, '_GWAS_Conditioned_on_', GWAS_signal, '_eQTL_Conditioned_on_', independent_eqtl_SNP_to_contition_on, 'condiotioned_rplowt.jpg', sep='_'))
+                    jpeg(fig2_filename)
                         par(mfrow=c(2,1))
                         coloc::plot_dataset(D1, highlight_list = list(
                           cond = GWAS_signal, coloc = colo_df$colocolised_snp)
@@ -213,5 +209,7 @@ for( i_GWAS in 1:nrow(independent_SNPs)){
     }
 }
 
-coloc_df <- rbindlist(coloc_results)
-fwrite(coloc_df, 'coloc_results.csv')
+if(length(coloc_results) > 0){
+    coloc_df <- rbindlist(coloc_results)
+    fwrite(coloc_df, 'coloc_results.csv')
+}

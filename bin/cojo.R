@@ -31,7 +31,7 @@ make_cojo_df <- function(df, source = c('gwas', 'eqtl')){
     return (Cojo_Dataframe)
 }
 
-# a small wrapper for system call with return code check
+# a small wrapper for system calls with return code check
 run_tool <- function (bin, args){
     print(paste(c(bin, args), collapse = ' '))
     logfile <- tempfile()
@@ -59,6 +59,7 @@ run_cojo <- function (bin = NULL, bfile, marker_list = NULL, conditional_markers
         '--bfile', bfile,
         '--cojo-p', pvalue,           # p-value to declare a genome-wide significant hit
         '--cojo-file', summary_stat,  # summary-level statistics from a GWAS
+        '--maf', '0.01',
         '--out', out_prefix
     )
 
@@ -123,15 +124,16 @@ run_plink2 <- function (bin = NULL, args){
 }
 
 # extracts genomic interval from bfile using plink2
-extract_locus <- function (bin = NULL, genotypes_prefix, chrom, start, end, out_prefix){
+extract_locus <- function (bin = NULL, genotypes_prefix, chrom, start, end, filters = NULL, out_prefix){
     range_filename <- tempfile(tmpdir = '.', fileext = '.txt')
     df <- data.table(chrom = chrom, start = start, end = end, label = 'locus')
-    fwrite(df, range_filename, sep = '\t', col.names = F)
+    fwrite(df, range_filename, sep = '\t', col.names = F, scipen = 1e9L)
 
     plink_args <- c(
         '--bfile', genotypes_prefix,
         '--extract', 'bed1', range_filename,
         '--make-bed',
+        filters,
         '--out', out_prefix
     )
 

@@ -2,6 +2,8 @@ requireNamespace('biomaRt')
 
 gwas_significance_threshold <- 5e-8
 eqtl_significance_threshold <- 5e-5
+cojo_strict_threshold <- 1e-4
+coloc_threshold <- 0.8
 
 get_gwas_significant_signals <- function (df, threshold=gwas_significance_threshold){
     df_sign <- df[df$p_value < threshold]
@@ -61,7 +63,7 @@ get_df_build_version <- function (df, mart37 = ensembl37, mart38 = ensembl38){
     )
     stopifnot(nrow(df_rs) > 0)
     row <- dplyr::slice_sample(df_rs, n = 1)
-    message(paste('Chosing', row$variant_id, 'to reveal genome build'))
+    message(paste('Choosing', row$variant_id, 'to reveal genome build'))
     get_snp_build_version(rs = row$variant_id, pos = row$base_pair_location,
                           mart37 = mart37, mart38 = mart38)
 }
@@ -118,4 +120,18 @@ thin_out_gwas_data <- function(df, threshold = 1e-5){
 plot_gwas <- function (df){
     gwas <- thin_out_gwas_data(df)
     qqman::manhattan(gwas, chr = 'chromosome', bp = 'base_pair_location', snp = 'variant_id', p = 'p_value')
+}
+
+plot_ggwas <- function (df, position_column, pvalue_column, snp_column, highlight_snps = NULL){
+    position <- enquo(position_column)
+    pvalue <- enquo(pvalue_column)
+    p <- ggplot2::ggplot(df, ggplot2::aes(x = !!position, y = -log10(!!pvalue))) +
+      ggplot2::geom_point() + ggplot2::theme_bw() +
+      ggplot2::scale_x_continuous(labels = ~ paste0(.x / 1e6, 'Mb'))
+
+    if(!is.null(highlight_snps)){
+        p <- p + ggplot2::geom_point(data = dplyr::filter(df, .data[[snp_column]] %in% highlight_snps), color = 'red')
+    }
+
+    p
 }
