@@ -61,4 +61,6 @@ data_list <- lapply(eqtls, function(val){
 
 Data2 <- rbindlist(data_list)
 
+if(ncol(Data2) == 0) Data2 <- data.table(gwas_name2 = character())
+
 fwrite(Data2, file=paste0(GWAS_name,"_all_signals.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)

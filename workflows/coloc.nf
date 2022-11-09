@@ -57,6 +57,9 @@ workflow COLOC {
     eqtl_snps = Channel
         .fromPath(params.eqtl_snps, followLinks: true, checkIfExists: true)
 
+    plink_files = Channel
+        .fromFilePairs("${params.bfile}.{bed,bim,fam}", checkIfExists: true, size: 3)
+
     // Calculate frequencies and extract number of significant GWAS hits for each input GWAS sum stats.
     COLOC_FREQ_AND_SNPS(gwas_list, eqtl_fofn, eqtl_snps)
 
