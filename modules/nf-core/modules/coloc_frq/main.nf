@@ -11,7 +11,8 @@ process COLOC_FREQ_AND_SNPS {
     }
     container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/pipeline_ip13/coloc-ip13.sif"
     input: 
-        path(GWAS)
+        each path(GWAS)
+        each path(eqtl_fofn)
         path(eqtl_snps)
 
     output:
@@ -31,7 +32,7 @@ process COLOC_FREQ_AND_SNPS {
         cp $projectDir/bin/helpers.R ./
         coloc_GWAS_frq.R \
             --gwas ${GWAS} \
-            --input ${params.input_table} \
+            --eqtl_fofn ${eqtl_fofn} \
             --eqtl_snps ${eqtl_snps}
         echo ${gwas_name} > Done.tmp
     """

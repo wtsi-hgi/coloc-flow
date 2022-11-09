@@ -45,45 +45,37 @@ include { COLOC_ON_SIG_VARIANTS } from '../modules/nf-core/modules/coloc_sig_var
 def multiqc_report = []
 workflow COLOC {
 
-    //
-    input_channel = Channel.fromPath(params.input_table, followLinks: true, checkIfExists: true)
+    // read lists of GWAS and eQTL statistics fofns
+    gwas_list = Channel
+        .fromPath(params.gwas_list, followLinks: true, checkIfExists: true)
+        .splitText()
 
-    // input_table
-    input_channel
-        .splitCsv(header: true, sep: params.input_tables_column_delimiter)
-        .map{row->tuple(row.GWAS, row.eQTL)}
-        .set{input_gwas_eqtl}
+    eqtl_fofn = Channel
+        .fromPath(params.eqtl_list, followLinks: true, checkIfExists: true)
+        .splitText( by: 10, file: true )
 
-    input_channel
-        .splitCsv(header: true, sep: params.input_tables_column_delimiter)
-        .map{row->row.GWAS}.unique()
-        .set{input_gwas}
-
-    input_channel
-        .splitCsv(header: true, sep: params.input_tables_column_delimiter)
-        .map{row->row.eQTL}.unique()
-        .set{input_eQTL}
+    eqtl_snps = Channel
+        .fromPath(params.eqtl_snps, followLinks: true, checkIfExists: true)
 
     // Calculate frequencies and extract number of significant GWAS hits for each input GWAS sum stats.
-    COLOC_FREQ_AND_SNPS(input_gwas, params.eqtl_snps)
+    COLOC_FREQ_AND_SNPS(gwas_list, eqtl_fofn, eqtl_snps)
 
     // Then for each of the GWAS independent SNPs and each of the corresponding eQTLs we generate a new job - we can split this up later on even more.
-    COLOC_FREQ_AND_SNPS.out.sig_signals_eqtls.splitCsv(header: true, sep: '\t', by: 1)
-        .map { row -> row.gwas_name2}
+    COLOC_FREQ_AND_SNPS.out.sig_signals_eqtls
+        .splitCsv(header: true, sep: '\t', by: 1)
+        .map { row -> row.gwas_name2.split("--") }
+        .map { it -> [it[0], it[1], it[2]] }
         .set { variant_id }
 
     // Have to run this on each of the eQTL files separately.
     COLOC_ON_SIG_VARIANTS(
-        variant_id,
-        COLOC_FREQ_AND_SNPS.out.GWAS.collect(),
-        Channel.fromFilePairs("${params.bfile}.{bed,bim,fam}", checkIfExists: true, size: 3)
+        variant_id.combine(plink_files)
     )
     // variant_id.view()
     // variant_id
     //   .subscribe onNext: {println "variant_id: $it"},
     //   onComplete: {println "variant_id: done"}
 
-    // COLOC_RUN(input_gwas_eqtl)
 }
 
 /*

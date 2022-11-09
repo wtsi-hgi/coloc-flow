@@ -23,11 +23,14 @@ load_GWAS <- function(GWAS){
     'P' = "p_value",
     'P-value' = "p_value",
 
-    'REF' = "effect_allele",
-    'Allele1' = "effect_allele",
+    'REF' = "reference_allele",
+    'ALT' = "alternative_allele",
 
-    'ALT' = "other_allele",
+    'Allele1' = "effect_allele",
+    'A1' = "effect_allele",
+
     'Allele2' = "other_allele",
+    'AX' = 'other_allelle',
 
     'CHROM' = "chromosome",
     'CHR' = "chromosome",
@@ -44,13 +47,16 @@ load_GWAS <- function(GWAS){
     'SE' = "standard_error",
     'StdErr' = "standard_error",
 
-    # 'NStudies' = "N",
-    'OBS_CT' = "N"
+    'Freq1' = 'eaf',
+    'A1_FREQ' = 'eaf',
+
+    'OBS_CT' = "N",
+    'N' = 'N'
   )
 
   #Gwas col rename
   table_rules <- renaming_rules[intersect(names(renaming_rules), colnames(map))]
-  map <- dplyr::rename(map, !!!setNames(names(table_rules), nm=table_rules))
+  map <- dplyr::select(map, !!!setNames(names(table_rules), nm=table_rules))
 
   return_list <- list("map" = map, "GWAS_name" = GWAS_name)
   return(return_list)

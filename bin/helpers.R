@@ -4,6 +4,7 @@ gwas_significance_threshold <- 5e-8
 eqtl_significance_threshold <- 5e-5
 cojo_strict_threshold <- 1e-4
 coloc_threshold <- 0.8
+chromosomes <- c(1:22, 'X', 'Y', 'XY', 'M')
 
 get_gwas_significant_signals <- function (df, threshold=gwas_significance_threshold){
     df_sign <- df[df$p_value < threshold]
@@ -111,7 +112,7 @@ lift_over_df <- function (df, chain){
 
     gr_new <- unlist(rtracklayer::liftOver(gr, chain))
     df_new <- data.table::as.data.table(gr_new)
-    df_new$seqnames <- as.integer(gsub('chr', '', df_new$seqnames))
+    df_new$seqnames <- factor(gsub('^chr', '', df_new$seqnames), levels = chromosomes)
     df_new <- dplyr::rename(df_new, base_pair_location = start, chromosome = seqnames)
     df_new <- dplyr::select(df_new, -end, -width, -strand)
     return(df_new)

@@ -56,6 +56,7 @@ if(variant_build != 'hg38'){
     message(paste('Convert GWAS positions from', variant_build, 'to hg38'))
     ch <- load_chain_file(from = variant_build, to = 'hg38')
     variants_of_interest <- lift_over_df(variants_of_interest, chain = ch)
+    variants_of_interest <- dplyr::filter(variants_of_interest, chromosome == chromosome1)
 
     locus_start <- min(variants_of_interest$base_pair_location)
     locus_end <- max(variants_of_interest$base_pair_location)

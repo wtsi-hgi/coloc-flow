@@ -5,9 +5,7 @@ requireNamespace('dplyr')
 make_cojo_df <- function(df, source = c('gwas', 'eqtl')){
     source <- match.arg(source)
     if (source == 'gwas'){
-        stopifnot(all(c('effect_allele', 'A1', 'A1_FREQ') %in% colnames(df)))
-        idx <- df$effect_allele == df$A1
-        df$FREQ <- ifelse(idx, df$A1_FREQ, 1 - df$A1_FREQ)
+        df <- dplyr::rename(df, FREQ = eaf)
     }
 
     if (source == 'eqtl'){
@@ -190,7 +188,7 @@ combine_cojo_results <- function (independent_signals, conditional_signals, lead
 prepare_coloc_table <- function (df){
     rules <- c(
         snp = 'variant_id', chr = 'chromosome', position = 'base_pair_location',
-        varbeta = 'standard_error', pvalues = 'p_value', 'beta', MAF = 'A1_FREQ', 'N',
+        varbeta = 'standard_error', pvalues = 'p_value', 'beta', MAF = 'eaf', 'N',
         snp = 'SNP', chr = 'Chr', position = 'bp',
         beta = 'bC', varbeta = 'bC_se', pvalues = 'pC', MAF = 'freq', 'MAF'
     )

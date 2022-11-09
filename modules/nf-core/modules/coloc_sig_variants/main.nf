@@ -14,21 +14,16 @@ process COLOC_ON_SIG_VARIANTS {
     memory '15 GB'
 
     input:
-        each variant
-        path(GWAS)
-        tuple val(bfile), path(plink_files)
+        tuple val(variant_name), path(gwas_name), path(eQTL_path), val(bfile), path(plink_files)
 
     output:
         path('Done.tmp', emit: done)
 
     script:
-    gwas_name ="${variant}".split("--")[1]
-    eQTL_path ="${variant}".split("--")[2]
-    variant_name ="${variant}".split("--")[0]
     """
-    ln -s $projectDir/bin/dataIO.R ./dataIO.R
-    ln -s $projectDir/bin/cojo.R ./cojo.R
-    ln -s $projectDir/bin/helpers.R ./helpers.R
+    cp $projectDir/bin/dataIO.R ./dataIO.R
+    cp $projectDir/bin/cojo.R ./cojo.R
+    cp $projectDir/bin/helpers.R ./helpers.R
         coloc_sig_variants.R \
             --gwas ${gwas_name} \
             --rs ${variant_name} \
