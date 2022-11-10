@@ -1,6 +1,8 @@
 requireNamespace('biomaRt')
+requireNamespace('yaml')
 
 gwas_significance_threshold <- 5e-8
+gwas_signal_threshold <- 1e-6
 eqtl_significance_threshold <- 5e-5
 cojo_strict_threshold <- 1e-4
 coloc_threshold <- 0.8
@@ -10,10 +12,6 @@ get_gwas_significant_signals <- function (df, threshold=gwas_significance_thresh
     df_sign <- df[df$p_value < threshold]
     return(df_sign)
 }
-
-
-ensembl38 <- biomaRt::useEnsembl(biomart = "snps", dataset = 'hsapiens_snp')
-ensembl37 <- biomaRt::useEnsembl(biomart = "snps", dataset = 'hsapiens_snp', version = 'GRCh37')
 
 # retrieve SNP position from BioMart
 get_snp_position <- function (rs, mart){
@@ -41,7 +39,10 @@ get_snp_position <- function (rs, mart){
 }
 
 # reveals SNP position build version (hg37/hg38)
-get_snp_build_version <- function (rs, pos, mart37 = ensembl37, mart38 = ensembl38){
+get_snp_build_version <- function (rs, pos, mart37, mart38){
+    if(missing(mart37)) mart37 <- biomaRt::useEnsembl(biomart = "snps", dataset = 'hsapiens_snp', version = 'GRCh37')
+    if(missing(mart38)) mart38 <- biomaRt::useEnsembl(biomart = "snps", dataset = 'hsapiens_snp')
+
     pos37 <- get_snp_position(rs, mart = mart37)
     pos38 <- get_snp_position(rs, mart = mart38)
     stopifnot(pos37 != pos38)
@@ -56,7 +57,7 @@ get_snp_build_version <- function (rs, pos, mart37 = ensembl37, mart38 = ensembl
 }
 
 # reveals dataframe build version (hg37/hg38)
-get_df_build_version <- function (df, mart37 = ensembl37, mart38 = ensembl38){
+get_df_build_version <- function (df, mart37, mart38){
     df_rs <- dplyr::filter(df,
       startsWith(variant_id, "rs"),
       nchar(effect_allele) == 1,
@@ -175,4 +176,18 @@ make_gwas_groups <- function (df, window = 1e6){
     stopifnot(all(groups$group_length < 2*window))
     setDT(groups, key = c("chromosome", "group_start", "group_end"))
     return(groups)
+}
+
+read_config <- function (path, gwas_name){
+    gwas_config <- list()
+
+    if(!is.null(path)){
+        config <- yaml::read_yaml(args$config)
+        gwas_in_config <- purrr::map_lgl(config$gwas, ~ .$name == gwas_name)
+        if(any(gwas_in_config)){
+            gwas_config <- config$gwas[[which(gwas_in_config)]]
+        }
+    }
+
+    return(gwas_config)
 }

@@ -11,6 +11,7 @@ option_list <- list(
     make_option('--eqtl', action="store", help="path to eqtl data"),
     make_option('--eqtl_snps', action="store", help = "path to eqtl snp_pos.txt file"),
     make_option('--eqtl_samples', action="store", default=192, help = "number of samples in eQTL study"),
+    make_option('--config', action="store", defaul=NULL, help="path to yaml-file with data configs"),
     make_option('--plink2_bin', action="store", default=NULL, help = "path to custom plink2 binary"),
     make_option('--gcta_bin', action="store", default=NULL, help = "path to custom gcta binary")
 )
@@ -29,9 +30,11 @@ bfile = args$bfile
 plink2_bin = args$plink2_bin
 gcta_bin = args$gcta_bin
 
-GWAS_name = tools::file_path_sans_ext(basename(GWAS))
+GWAS_name = tools::file_path_sans_ext(basename(GWAS), compression = T)
 eQTL_name = strsplit(tools::file_path_sans_ext(basename(eQTL)), "\\.")[[1]]
 eQTL_name = paste(eQTL_name[1:length(eQTL_name)-1], collapse = "_")
+
+config <- read_config(args$config, GWAS_name)
 
 Full_GWAS_Sum_Stats = load_GWAS(GWAS)$map
 Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats)
@@ -51,10 +54,15 @@ variants_of_interest <- dplyr::filter(Full_GWAS_Sum_Stats,
     between(base_pair_location, locus_start, locus_end)
 )
 
-variant_build <- get_df_build_version(df = variants_of_interest)
-if(variant_build != 'hg38'){
-    message(paste('Convert GWAS positions from', variant_build, 'to hg38'))
-    ch <- load_chain_file(from = variant_build, to = 'hg38')
+if(!is.null(config$build)){
+    gwas_build <- config$build
+} else{
+    gwas_build <- get_df_build_version(df = variants_of_interest)
+}
+
+if(gwas_build != 'hg38'){
+    message(paste('Convert GWAS positions from', gwas_build, 'to hg38'))
+    ch <- load_chain_file(from = gwas_build, to = 'hg38')
     variants_of_interest <- lift_over_df(variants_of_interest, chain = ch)
     variants_of_interest <- dplyr::filter(variants_of_interest, chromosome == chromosome1)
 
@@ -94,23 +102,28 @@ cojo_out <- run_cojo(
 
 coloc_results <- list()
 independent_SNPs <- fread(cojo_out$independent_signals)
+independent_signals <- dplyr::filter(independent_SNPs, p < gwas_signal_threshold)$SNP
 
-for( GWAS_signal in independent_SNPs$SNP){
-    independent_markerfile <- paste0(GWAS_signal, "_independent.snp")
+for( GWAS_signal in independent_signals){
     all_but_one <- setdiff(independent_SNPs$SNP, GWAS_signal)
-    writeLines(all_but_one, con = independent_markerfile)
-    cojo_cond_out <- run_cojo(
-        bin = gcta_bin,
-        bfile = locus_filename,
-        summary_stat = cojo_filename,
-        pvalue = cojo_strict_threshold,
-        conditional_markers = independent_markerfile,
-        out_prefix = paste(variant_id, GWAS_name, "step2", sep = '_')
-    )
+    if(length(all_but_one) > 0){
+        independent_markerfile <- paste0(GWAS_signal, "_independent.snp")
+        writeLines(all_but_one, con = independent_markerfile)
+        cojo_cond_out <- run_cojo(
+            bin = gcta_bin,
+            bfile = locus_filename,
+            summary_stat = cojo_filename,
+            pvalue = cojo_strict_threshold,
+            conditional_markers = independent_markerfile,
+            out_prefix = paste(variant_id, GWAS_name, "step2", sep = '_')
+        )
 
-    conditioned_dataset <- fread(cojo_cond_out$conditional_analysis)
-    # some SNP(s) have large difference of allele frequency between the GWAS summary data and the reference sample, hence are removed.
-    D1 <- prepare_coloc_table(conditioned_dataset)
+        conditioned_dataset <- fread(cojo_cond_out$conditional_analysis)
+        # some SNP(s) have large difference of allele frequency between the GWAS summary data and the reference sample, hence are removed.
+        D1 <- prepare_coloc_table(conditioned_dataset)
+    } else {
+        D1 <- prepare_coloc_table(variants_of_interest)
+    }
 
     for (qtl1 in eqtl_genes){
         single_eqtl = genes_of_interest[genes_of_interest$gene==qtl1, ]
@@ -134,21 +147,25 @@ for( GWAS_signal in independent_SNPs$SNP){
             independent_SNPs_eQTL <- fread(eqtl_cojo_out$independent_signals)
 
             for( independent_eqtl_SNP_to_contition_on in independent_SNPs_eQTL$SNP){
-                eqtl_independant_markerfile <- paste0(independent_eqtl_SNP_to_contition_on, "_eqtl_independent.snp")
                 all_but_one_eqtl <- setdiff(independent_SNPs_eQTL$SNP, independent_eqtl_SNP_to_contition_on)
-                writeLines(all_but_one_eqtl, con = eqtl_independant_markerfile)
+                if(length(all_but_one_eqtl) > 0){
+                    eqtl_independant_markerfile <- paste0(independent_eqtl_SNP_to_contition_on, "_eqtl_independent.snp")
+                    writeLines(all_but_one_eqtl, con = eqtl_independant_markerfile)
 
-                eqtl_cond_cojo_out <- run_cojo(
-                    bin = gcta_bin,
-                    bfile = locus_filename,
-                    summary_stat = eqtl_summary_file,
-                    pvalue = cojo_strict_threshold,
-                    conditional_markers = eqtl_independant_markerfile,
-                    out_prefix = paste(variant_id, qtl1, eQTL_name, independent_eqtl_SNP_to_contition_on, "eqtl_step2", sep = "_")
-                )
+                    eqtl_cond_cojo_out <- run_cojo(
+                        bin = gcta_bin,
+                        bfile = locus_filename,
+                        summary_stat = eqtl_summary_file,
+                        pvalue = cojo_strict_threshold,
+                        conditional_markers = eqtl_independant_markerfile,
+                        out_prefix = paste(variant_id, qtl1, eQTL_name, independent_eqtl_SNP_to_contition_on, "eqtl_step2", sep = "_")
+                    )
 
-                conditioned_dataset_eQTL <- fread(eqtl_cond_cojo_out$conditional_analysis)
-                D2 <- prepare_coloc_table(conditioned_dataset_eQTL)
+                    conditioned_dataset_eQTL <- fread(eqtl_cond_cojo_out$conditional_analysis)
+                    D2 <- prepare_coloc_table(conditioned_dataset_eQTL)
+                } else {
+                    D2 <- prepare_coloc_table(single_eqtl2)
+                }
 
                 SNPs_To_Colocalise = intersect(D1$snp, D2$snp)
                 D1_col = D1[D1$snp %in% SNPs_To_Colocalise, ]

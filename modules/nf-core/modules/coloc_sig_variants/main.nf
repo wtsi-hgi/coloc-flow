@@ -29,7 +29,8 @@ process COLOC_ON_SIG_VARIANTS {
             --rs ${variant_name} \
             --bfile ${bfile} \
             --eqtl ${eQTL_path} \
-            --eqtl_snps ${params.eqtl_snps}
+            --eqtl_snps ${params.eqtl_snps} \
+            --config ${params.yaml}
         echo ${variant_name} > Done.tmp
     """
 }

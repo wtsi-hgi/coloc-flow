@@ -7,7 +7,7 @@ load_GWAS <- function(GWAS){
   message(paste('Reading GWAS:', GWAS))
 
   GWAS_ext = tools::file_ext(GWAS)
-  GWAS_name = tools::file_path_sans_ext(basename(GWAS))
+  GWAS_name = tools::file_path_sans_ext(basename(GWAS), compression = T)
 
   if(GWAS_ext=='zip'){
     print('zip')
@@ -30,7 +30,7 @@ load_GWAS <- function(GWAS){
     'A1' = "effect_allele",
 
     'Allele2' = "other_allele",
-    'AX' = 'other_allelle',
+    'AX' = 'other_allele',
 
     'CHROM' = "chromosome",
     'CHR' = "chromosome",
@@ -60,7 +60,6 @@ load_GWAS <- function(GWAS){
 
   return_list <- list("map" = map, "GWAS_name" = GWAS_name)
   return(return_list)
-
 }
 
 #### Eqtl data
