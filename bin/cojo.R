@@ -23,8 +23,8 @@ make_cojo_df <- function(df, source = c('gwas', 'eqtl')){
         p=p_value,         # p-value
         N                  # sample size
     )
-    Cojo_Dataframe = Cojo_Dataframe[!is.na(Cojo_Dataframe$freq)]  # <- 0
-    Cojo_Dataframe = Cojo_Dataframe[!Cojo_Dataframe$N < 10]  # Cojo doesnt like sample sizes smaller than 10
+    Cojo_Dataframe = Cojo_Dataframe[!is.na(Cojo_Dataframe$freq), ]  # <- 0
+    Cojo_Dataframe = Cojo_Dataframe[!Cojo_Dataframe$N < 10, ]  # Cojo doesnt like sample sizes smaller than 10
     Cojo_Dataframe = transform(Cojo_Dataframe, freq = as.numeric(freq), N = as.numeric(N), b = as.numeric(b))
     return (Cojo_Dataframe)
 }
@@ -37,10 +37,10 @@ run_tool <- function (bin, args){
     log <- readLines(logfile)
     file.remove(logfile)
     if(rc != 0){
-        cat(paste(log, collapse = '\n'))
+        cat(paste(log, collapse = '\n'), '\n')
         stop(rc != 0)
     } else{
-        cat(paste(tail(log, n = 15), collapse = '\n'))
+        cat(paste(tail(log, n = 15), collapse = '\n'), '\n')
     }
 }
 
@@ -169,6 +169,36 @@ get_ld_matrix <- function (plink_bin = NULL, genotypes_prefix, markers, out_pref
     rownames(m) <- cols
 
     return(m)
+}
+
+get_plink_freq <- function (plink2_bin, genotypes_prefix, out_prefix){
+    if(missing(out_prefix)) out_prefix <- tempfile(tmpdir = '.')
+    plink_args <- c(
+      '--bfile', genotypes_prefix,
+      '--freq',
+      '--out', out_prefix
+    )
+    run_plink2(bin = plink2_bin, args = plink_args)
+
+    freq_filename <- paste0(out_prefix, '.afreq')
+    freq <- fread(freq_filename)
+    return(freq)
+}
+
+add_freq <- function (df, freq){
+    m <- inner_join(
+      df %>% mutate(chromosome = as.integer(as.character(chromosome))),
+      freq %>% select(-OBS_CT),
+      by = c('chromosome'='#CHROM', 'variant_id'='ID')
+    ) %>%
+      rowwise() %>%
+      filter(all(c(effect_allele, other_allele) %in% c(REF, ALT))) %>%
+      ungroup()
+
+    df_freq <- mutate(m, eaf = ifelse(ALT == effect_allele, ALT_FREQS, 1-ALT_FREQS)) %>%
+      select(-REF, -ALT, -ALT_FREQS)
+
+    return(df_freq)
 }
 
 combine_cojo_results <- function (independent_signals, conditional_signals, lead_snp){

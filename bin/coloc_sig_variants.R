@@ -3,6 +3,7 @@ library(data.table)
 library(coloc)
 # library(susieR)
 library(optparse)
+library(magrittr)
 
 option_list <- list(
     make_option('--gwas', action="store", help="path to GWAS summary statistic"),
@@ -70,17 +71,6 @@ if(gwas_build != 'hg38'){
     locus_end <- max(variants_of_interest$base_pair_location)
 }
 
-Cojo_Dataframe <- make_cojo_df(variants_of_interest)
-
-genes_of_interest <- dplyr::filter(single_eqtl1,
-    chromosome == chromosome1,
-    between(base_pair_location, locus_start, locus_end)
-)
-eqtl_genes <- unique(genes_of_interest$gene)
-
-cojo_filename <- paste0(variant_id, '_', GWAS_name, "_sum.txt")
-fwrite(Cojo_Dataframe, file = cojo_filename, row.names = F, quote = F, sep = "\t")
-
 locus_filename <- paste(basename(bfile), chromosome1, locus_start, locus_end, sep = '-')
 extract_locus(
     bin = plink2_bin,
@@ -91,6 +81,38 @@ extract_locus(
     filters = c('--maf', '0.01'),
     out_prefix = locus_filename
 )
+
+if(!'eaf' %in% colnames(variants_of_interest)){
+    if(!is.null(config$frequency_not_available) && config$frequency_not_available){
+        message('Calculating allele frequencies from LD panel')
+        variants_of_interest %<>% add_freq(
+            freq = get_plink_freq(plink2_bin, locus_filename)
+        )
+    } else {
+        text <- paste('No AF column in GWAS. If you wish to use AF of LD-panel',
+                      'please use `frequency_not_available` in yaml-config')
+        stop(text)
+    }
+}
+
+if(!'N' %in% colnames(variants_of_interest)){
+    if('samples_number' %in% names(config)){
+        variants_of_interest %<>% mutate(N = config$samples_number)
+    } else {
+        stop('No information abount number of samples in GWAS. Please provide it in yaml-config')
+    }
+}
+
+Cojo_Dataframe <- make_cojo_df(variants_of_interest)
+
+genes_of_interest <- dplyr::filter(single_eqtl1,
+    chromosome == chromosome1,
+    between(base_pair_location, locus_start, locus_end)
+)
+eqtl_genes <- unique(genes_of_interest$gene)
+
+cojo_filename <- paste0(variant_id, '_', GWAS_name, "_sum.txt")
+fwrite(Cojo_Dataframe, file = cojo_filename, row.names = F, quote = F, sep = "\t")
 
 cojo_out <- run_cojo(
     bin = gcta_bin,
@@ -145,6 +167,10 @@ for( GWAS_signal in independent_signals){
                 out_prefix = paste(variant_id, qtl1, eQTL_name, "eqtl_step1", sep = "_")
             )
             independent_SNPs_eQTL <- fread(eqtl_cojo_out$independent_signals)
+            if(!file.exists(eqtl_cojo_out$independent_signals)){
+                warning('No independant SNPs in eQTL found')
+                next
+            }
 
             for( independent_eqtl_SNP_to_contition_on in independent_SNPs_eQTL$SNP){
                 all_but_one_eqtl <- setdiff(independent_SNPs_eQTL$SNP, independent_eqtl_SNP_to_contition_on)
