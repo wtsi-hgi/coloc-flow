@@ -61,7 +61,7 @@ load_GWAS <- function(GWAS){
     setNames(names(renaming_rules), nm=renaming_rules),
     unlist(col.names)
   )
-  map <- dplyr::select(map, !!!any_of(table_cols))
+  map <- dplyr::select(map, !!!dplyr::any_of(table_cols))
 
   return_list <- list("map" = map, "GWAS_name" = GWAS_name)
   return(return_list)

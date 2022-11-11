@@ -186,6 +186,8 @@ get_plink_freq <- function (plink2_bin, genotypes_prefix, out_prefix){
 }
 
 add_freq <- function (df, freq){
+    require(dplyr)
+
     m <- inner_join(
       df %>% mutate(chromosome = as.integer(as.character(chromosome))),
       freq %>% select(-OBS_CT),

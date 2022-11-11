@@ -166,11 +166,11 @@ for( GWAS_signal in independent_signals){
                 pvalue = cojo_strict_threshold,
                 out_prefix = paste(variant_id, qtl1, eQTL_name, "eqtl_step1", sep = "_")
             )
-            independent_SNPs_eQTL <- fread(eqtl_cojo_out$independent_signals)
             if(!file.exists(eqtl_cojo_out$independent_signals)){
                 warning('No independant SNPs in eQTL found')
                 next
             }
+            independent_SNPs_eQTL <- fread(eqtl_cojo_out$independent_signals)
 
             for( independent_eqtl_SNP_to_contition_on in independent_SNPs_eQTL$SNP){
                 all_but_one_eqtl <- setdiff(independent_SNPs_eQTL$SNP, independent_eqtl_SNP_to_contition_on)
