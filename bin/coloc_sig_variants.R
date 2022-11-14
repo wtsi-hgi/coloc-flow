@@ -97,7 +97,7 @@ if(!'eaf' %in% colnames(variants_of_interest)){
 
 if(!'N' %in% colnames(variants_of_interest)){
     if('samples_number' %in% names(config)){
-        variants_of_interest %<>% mutate(N = config$samples_number)
+        variants_of_interest %<>% dplyr::mutate(N = config$samples_number)
     } else {
         stop('No information about number of samples in GWAS. Please provide it in yaml-config')
     }
@@ -221,8 +221,8 @@ for( GWAS_signal in independent_signals){
                       eqtl_lead = independent_eqtl_SNP_to_contition_on,
                       pp_h4 = colo.res$summary[['PP.H4.abf']],
                       colocolised_snp = subset(colo.res$results, SNP.PP.H4>0.01)$snp,
-                      figure_data = fig2_filename,
-                      figure_coloc = fig1_filename
+                      figure_data = file.path(getwd(), fig2_filename),
+                      figure_coloc = file.path(getwd(), fig1_filename)
                     )
 
                     coloc_results <- append(coloc_results, list(colo_df))
@@ -231,21 +231,12 @@ for( GWAS_signal in independent_signals){
                     dev.off()
 
                     if(nrow(colo_res)>0){
-                    jpeg(fig2_filename)
-                        par(mfrow=c(2,1))
-                        coloc::plot_dataset(D1, highlight_list = list(
-                          cond = GWAS_signal, coloc = colo_df$colocolised_snp)
-                        )
-                        par(new=TRUE)
-                        print("Outcome")
-
-                        title(variant_id, line = -2, outer = TRUE)
-                        coloc::plot_dataset(D2, highlight_list = list(
-                          cond = independent_eqtl_SNP_to_contition_on, coloc = colo_df$colocolised_snp)
-                        )
-                        par(new=TRUE)
-                        print("eQTL")
-                    dev.off()
+                        p1 <- plot_ggwas(D1, position, pvalues, xlim=c(locus_start, locus_end),
+                                         snp_column = 'snp', highlight_snps = colo_df$colocolised_snp)
+                        p2 <- plot_ggwas(D2, position, pvalues, xlim=c(locus_start, locus_end),
+                                         snp_column = 'snp', highlight_snps = colo_df$colocolised_snp)
+                        p <- gridExtra::grid.arrange(p1, p2, nrow = 2, ncol = 1)
+                        ggplot2::ggsave(plot = p, filename = fig2_filename)
                     }
                 }
             }

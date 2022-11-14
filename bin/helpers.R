@@ -131,12 +131,12 @@ plot_gwas <- function (df){
     qqman::manhattan(gwas, chr = 'chromosome', bp = 'base_pair_location', snp = 'variant_id', p = 'p_value')
 }
 
-plot_ggwas <- function (df, position_column, pvalue_column, snp_column, highlight_snps = NULL){
+plot_ggwas <- function (df, position_column, pvalue_column, snp_column, highlight_snps = NULL, xlim = NULL){
     position <- dplyr::enquo(position_column)
     pvalue <- dplyr::enquo(pvalue_column)
     p <- ggplot2::ggplot(df, ggplot2::aes(x = !!position, y = -log10(!!pvalue))) +
       ggplot2::geom_point() + ggplot2::theme_bw() +
-      ggplot2::scale_x_continuous(labels = ~ paste0(.x / 1e6, 'Mb'))
+      ggplot2::scale_x_continuous(labels = ~ paste0(.x / 1e6, 'Mb'), limits = xlim)
 
     if(!is.null(highlight_snps)){
         p <- p + ggplot2::geom_point(data = dplyr::filter(df, .data[[snp_column]] %in% highlight_snps), color = 'red')
