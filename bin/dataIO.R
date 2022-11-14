@@ -28,18 +28,22 @@ load_GWAS <- function(GWAS){
 
     'Allele1' = "effect_allele",
     'A1' = "effect_allele",
+    'A_EFF' = "effect_allele",
 
     'Allele2' = "other_allele",
     'AX' = 'other_allele',
+    'A_NONEFF' = 'other_allele',
 
     'CHROM' = "chromosome",
     'CHR' = "chromosome",
 
     'ID' = "variant_id",
     'MarkerName' = "variant_id",
+    'SNP' = "variant_id",
 
     'POS' = "base_pair_location",
     'pos' = "base_pair_location",
+    'BP' = "base_pair_location",
 
     'BETA' = "beta",
     'Effect' = "beta",
@@ -49,6 +53,7 @@ load_GWAS <- function(GWAS){
 
     'Freq1' = 'eaf',
     'A1_FREQ' = 'eaf',
+    'Freq_EFF' = 'eaf',
 
     'OBS_CT' = "N",
     'N' = 'N'
@@ -124,4 +129,31 @@ read_freqs <- function (filename){
     }
 
     return(freqs)
+}
+
+# if gwas data is missing eaf, this function will add it from freq table
+add_freq <- function (df, freq){
+    require(dplyr)
+
+    m <- inner_join(
+      df %>% mutate(chromosome = as.integer(as.character(chromosome))),
+      freq %>% select(-OBS_CT),
+      by = c('chromosome'='#CHROM', 'variant_id'='ID')
+    ) %>%
+      rowwise() %>%
+      filter(all(c(effect_allele, other_allele) %in% c(REF, ALT))) %>%
+      ungroup()
+
+    df_freq <- mutate(m, eaf = ifelse(ALT == effect_allele, ALT_FREQS, 1-ALT_FREQS)) %>%
+      select(-REF, -ALT, -ALT_FREQS)
+
+    return(df_freq)
+}
+
+add_position <- function (df, variant_colname = 'variant_id', genotype_prefix){
+    stopifnot(variant_colname %in% colnames(df))
+    bim_filename <- paste(genotype_prefix, 'bim', sep='.')
+    bim <- fread(bim_filename, col.names = c('chromosome', 'rsid', 'base_pair_location'), select = c(1, 2, 4))
+    m <- dplyr::inner_join(df, bim, by = setNames('rsid', variant_colname))
+    return(m)
 }

@@ -185,24 +185,6 @@ get_plink_freq <- function (plink2_bin, genotypes_prefix, out_prefix){
     return(freq)
 }
 
-add_freq <- function (df, freq){
-    require(dplyr)
-
-    m <- inner_join(
-      df %>% mutate(chromosome = as.integer(as.character(chromosome))),
-      freq %>% select(-OBS_CT),
-      by = c('chromosome'='#CHROM', 'variant_id'='ID')
-    ) %>%
-      rowwise() %>%
-      filter(all(c(effect_allele, other_allele) %in% c(REF, ALT))) %>%
-      ungroup()
-
-    df_freq <- mutate(m, eaf = ifelse(ALT == effect_allele, ALT_FREQS, 1-ALT_FREQS)) %>%
-      select(-REF, -ALT, -ALT_FREQS)
-
-    return(df_freq)
-}
-
 combine_cojo_results <- function (independent_signals, conditional_signals, lead_snp){
     conditioned_dataset <- fread(conditional_signals)
     conditioned_dataset_condSNP <- fread(independent_signals)

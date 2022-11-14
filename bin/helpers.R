@@ -170,7 +170,7 @@ make_gwas_groups <- function (df, window = 1e6){
                   group_end = max(base_pair_location),
                   .groups = 'drop') %>%
         mutate(group_length = group_end - group_start,
-               group_id = 1:n()) %>%
+               group_id = seq_along(group)) %>%
         select(-group) -> groups
 
     stopifnot(all(groups$group_length < 2*window))

@@ -99,7 +99,7 @@ if(!'N' %in% colnames(variants_of_interest)){
     if('samples_number' %in% names(config)){
         variants_of_interest %<>% mutate(N = config$samples_number)
     } else {
-        stop('No information abount number of samples in GWAS. Please provide it in yaml-config')
+        stop('No information about number of samples in GWAS. Please provide it in yaml-config')
     }
 }
 
