@@ -95,6 +95,13 @@ if(!'eaf' %in% colnames(variants_of_interest)){
     }
 }
 
+if(!is.null(config$type)){
+    gwas_type <- config$type
+    stopifnot(gwas_type %in% c('cc', 'quant'))
+} else {
+    stop('Please provide GWAS type (cc or quant) in yaml-config')
+}
+
 if(!'N' %in% colnames(variants_of_interest)){
     if('samples_number' %in% names(config)){
         variants_of_interest %<>% dplyr::mutate(N = config$samples_number)
@@ -193,14 +200,15 @@ for( GWAS_signal in independent_signals){
                     D2 <- prepare_coloc_table(single_eqtl2)
                 }
 
+                # dataset1 and dataset2 should contain the same snps in the same order, or should contain snp names through which the common snps can be identified
                 SNPs_To_Colocalise = intersect(D1$snp, D2$snp)
                 D1_col = D1[D1$snp %in% SNPs_To_Colocalise, ]
                 D2_col = D2[D2$snp %in% SNPs_To_Colocalise, ]
 
-                D1_l <- prepare_coloc_list(D1_col, N = first(Cojo_Dataframe$N))
+                D1_l <- prepare_coloc_list(D1_col, N = first(Cojo_Dataframe$N), type = gwas_type)
                 D2_l <- prepare_coloc_list(D2_col, N = eqtl_samples_number)
 
-                # dataset1 and dataset2 should contain the same snps in the same order, or should contain snp names through which the common snps can be identified
+                # FIXME align effect alleles in both datasets
                 colo.res <- coloc.abf(D1_l, D2_l)
                 colo_res=data.frame(t(colo.res$summary))
                 print('|||Coloc result:|||')

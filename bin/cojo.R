@@ -215,6 +215,8 @@ prepare_coloc_table <- function (df){
 }
 
 prepare_coloc_list <- function (coloc_df, N, type = 'quant'){
+    # remove duplicated snps
+    coloc_df <- coloc_df %>% add_count(snp) %>% filter(n == 1) %>% select(-n)
     l <- as.list(coloc_df)
     l$type <- type
     l$N <- N
