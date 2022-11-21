@@ -138,6 +138,8 @@ for( GWAS_signal in independent_signals){
     if(length(all_but_one) > 0){
         independent_markerfile <- paste0(GWAS_signal, "_independent.snp")
         writeLines(all_but_one, con = independent_markerfile)
+
+        # some SNPs have large difference of allele frequency between the GWAS summary data and the reference sample, hence are removed.
         cojo_cond_out <- run_cojo(
             bin = gcta_bin,
             bfile = locus_filename,
@@ -148,10 +150,9 @@ for( GWAS_signal in independent_signals){
         )
 
         conditioned_dataset <- fread(cojo_cond_out$conditional_analysis)
-        # some SNP(s) have large difference of allele frequency between the GWAS summary data and the reference sample, hence are removed.
-        D1 <- prepare_coloc_table(conditioned_dataset)
+        gwas_data <- conditioned_dataset
     } else {
-        D1 <- prepare_coloc_table(variants_of_interest)
+        gwas_data <- variants_of_interest
     }
 
     for (qtl1 in eqtl_genes){
@@ -195,18 +196,17 @@ for( GWAS_signal in independent_signals){
                     )
 
                     conditioned_dataset_eQTL <- fread(eqtl_cond_cojo_out$conditional_analysis)
-                    D2 <- prepare_coloc_table(conditioned_dataset_eQTL)
+                    eqtl_data <- conditioned_dataset_eQTL
                 } else {
-                    D2 <- prepare_coloc_table(single_eqtl2)
+                    eqtl_data <- single_eqtl2
                 }
 
-                # dataset1 and dataset2 should contain the same snps in the same order, or should contain snp names through which the common snps can be identified
-                SNPs_To_Colocalise = intersect(D1$snp, D2$snp)
-                D1_col = D1[D1$snp %in% SNPs_To_Colocalise, ]
-                D2_col = D2[D2$snp %in% SNPs_To_Colocalise, ]
+                # eqtl_data <- align_datasets(gwas_data, eqtl_data)
+                D1 <- prepare_coloc_table(gwas_data)
+                D2 <- prepare_coloc_table(eqtl_data)
 
-                D1_l <- prepare_coloc_list(D1_col, N = first(Cojo_Dataframe$N), type = gwas_type)
-                D2_l <- prepare_coloc_list(D2_col, N = eqtl_samples_number)
+                D1_l <- prepare_coloc_list(D1, N = first(Cojo_Dataframe$N), type = gwas_type)
+                D2_l <- prepare_coloc_list(D2, N = eqtl_samples_number)
 
                 # FIXME align effect alleles in both datasets
                 colo.res <- coloc.abf(D1_l, D2_l)
@@ -216,8 +216,8 @@ for( GWAS_signal in independent_signals){
 
                 if (colo_res$PP.H4.abf > coloc_threshold){
 
-                    fig1_filename <- paste(variant_id, qtl1, chromosome1, '_GWAS_Conditioned_on_', GWAS_signal, '_eQTL_Conditioned_on_', independent_eqtl_SNP_to_contition_on, 'coloc.jpg', sep='_')
-                    fig2_filename <- paste(variant_id, qtl1, chromosome1, '_GWAS_Conditioned_on_', GWAS_signal, '_eQTL_Conditioned_on_', independent_eqtl_SNP_to_contition_on, 'condiotioned_rplowt.jpg', sep='_')
+                    fig1_filename <- paste(GWAS_name, GWAS_signal, eQTL_name, qtl1, independent_eqtl_SNP_to_contition_on, chromosome1, locus_start, locus_end, 'coloc.jpg', sep='_')
+                    fig2_filename <- paste(GWAS_name, GWAS_signal, eQTL_name, qtl1, independent_eqtl_SNP_to_contition_on, chromosome1, locus_start, locus_end, 'rplot.jpg', sep='_')
 
                     colo_df <- data.table(
                       gwas_name = GWAS_name,
@@ -240,10 +240,13 @@ for( GWAS_signal in independent_signals){
 
                     if(nrow(colo_res)>0){
                         p1 <- plot_ggwas(D1, position, pvalues, xlim=c(locus_start, locus_end),
-                                         snp_column = 'snp', highlight_snps = colo_df$colocolised_snp)
+                                         snp_column = 'snp', highlight_snps = colo_df$colocolised_snp) +
+                            ggplot2::labs(title = GWAS_name, subtitle = GWAS_signal)
                         p2 <- plot_ggwas(D2, position, pvalues, xlim=c(locus_start, locus_end),
-                                         snp_column = 'snp', highlight_snps = colo_df$colocolised_snp)
-                        p <- gridExtra::grid.arrange(p1, p2, nrow = 2, ncol = 1)
+                                         snp_column = 'snp', highlight_snps = colo_df$colocolised_snp) +
+                            ggplot2::labs(title = paste(eQTL_name, qtl1, sep = ' · '), subtitle = independent_eqtl_SNP_to_contition_on)
+                        p <- gridExtra::grid.arrange(p1, p2, nrow = 2, ncol = 1,
+                                                     top = grid::textGrob(paste('chromosome', chromosome1)))
                         ggplot2::ggsave(plot = p, filename = fig2_filename)
                     }
                 }

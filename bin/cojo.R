@@ -214,11 +214,13 @@ prepare_coloc_table <- function (df){
     return(D1)
 }
 
-prepare_coloc_list <- function (coloc_df, N, type = 'quant'){
-    # remove duplicated snps
-    coloc_df <- coloc_df %>% add_count(snp) %>% filter(n == 1) %>% select(-n)
+prepare_coloc_list <- function (coloc_df, N, type = c('quant', 'cc')){
+    require(dplyr)
+    type <- match.arg(type)
+    coloc_df <- coloc_df %>% add_count(snp) %>% filter(n == 1) %>% select(-n)  # remove duplicated snps
     l <- as.list(coloc_df)
     l$type <- type
     l$N <- N
+    if(type == 'cc') l$pvalues <- NULL  # otherwise coloc will ignore betas
     return(l)
 }
