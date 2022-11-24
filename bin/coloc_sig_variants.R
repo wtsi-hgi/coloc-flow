@@ -234,9 +234,12 @@ for( GWAS_signal in independent_signals){
                     )
 
                     coloc_results <- append(coloc_results, list(colo_df))
-                    jpeg(fig1_filename)
-                        sensitivity(colo.res, paste0("H4 > ", coloc_threshold))
-                    dev.off()
+
+                    try({
+                        jpeg(fig1_filename)
+                            sensitivity(colo.res, paste0("H4 > ", coloc_threshold))
+                        dev.off()
+                    }, silent = F)
 
                     if(nrow(colo_res)>0){
                         p1 <- plot_ggwas(D1, position, pvalues, xlim=c(locus_start, locus_end),
