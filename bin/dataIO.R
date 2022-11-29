@@ -29,10 +29,12 @@ load_GWAS <- function(GWAS){
     'Allele1' = "effect_allele",
     'A1' = "effect_allele",
     'A_EFF' = "effect_allele",
+    'EA' = "effect_allele",
 
     'Allele2' = "other_allele",
     'AX' = 'other_allele',
     'A_NONEFF' = 'other_allele',
+    'NEA' = 'other_allele',
 
     'CHROM' = "chromosome",
     'CHR' = "chromosome",
@@ -40,6 +42,7 @@ load_GWAS <- function(GWAS){
     'ID' = "variant_id",
     'MarkerName' = "variant_id",
     'SNP' = "variant_id",
+    'rsID' = "variant_id",
 
     'POS' = "base_pair_location",
     'pos' = "base_pair_location",
@@ -54,6 +57,7 @@ load_GWAS <- function(GWAS){
     'Freq1' = 'eaf',
     'A1_FREQ' = 'eaf',
     'Freq_EFF' = 'eaf',
+    'EAF' = 'eaf',
 
     'OBS_CT' = "N",
     'N' = 'N'
