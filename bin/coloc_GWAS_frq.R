@@ -48,6 +48,14 @@ data_list <- lapply(eqtls, function(val){
       data.table::foverlaps(Significant_GWAS_Signals_new, groups,
                       type = 'within',
                       by.x = c('chromosome', 'base_pair_location', 'base_pair_location_end')) %>%
+        add_count(variant_id) %>%
+        filter(n == 1) -> group_markers
+
+      if(nrow(group_markers) == 0){
+        stop('No biallelic markers in significance region!')
+      }
+
+      group_markers %>%
           group_by(group_id) %>%
           arrange(base_pair_location) %>%
           summarise(variant_id = variant_id[ceiling(n()/2)]) -> representative_snps
