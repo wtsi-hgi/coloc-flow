@@ -130,7 +130,12 @@ cojo_out <- run_cojo(
 )
 
 coloc_results <- list()
-independent_SNPs <- fread(cojo_out$independent_signals)
+if(!file.exists(cojo_out$independent_signals)){
+    warning('No independant SNPs in GWAS found')
+    independent_SNPs <- dplyr::rename(row1, SNP = variant_id, p = p_value)
+} else {
+    independent_SNPs <- fread(cojo_out$independent_signals)
+}
 independent_signals <- dplyr::filter(independent_SNPs, p < gwas_signal_threshold)$SNP
 
 for( GWAS_signal in independent_signals){
@@ -176,9 +181,11 @@ for( GWAS_signal in independent_signals){
             )
             if(!file.exists(eqtl_cojo_out$independent_signals)){
                 warning('No independant SNPs in eQTL found')
-                next
+                independent_SNPs_eQTL <- dplyr::rename(single_eqtl2, SNP = variant_id, p = p_value) %>%
+                  dplyr::slice_min(p, n = 1, with_ties = F)
+            } else {
+                independent_SNPs_eQTL <- fread(eqtl_cojo_out$independent_signals)
             }
-            independent_SNPs_eQTL <- fread(eqtl_cojo_out$independent_signals)
 
             for( independent_eqtl_SNP_to_contition_on in independent_SNPs_eQTL$SNP){
                 all_but_one_eqtl <- setdiff(independent_SNPs_eQTL$SNP, independent_eqtl_SNP_to_contition_on)
