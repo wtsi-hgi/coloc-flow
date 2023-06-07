@@ -27,16 +27,19 @@ RUN apt-get install -y libpng-dev libssl-dev liblapack-dev libopenblas-dev
 RUN R -e 'install.packages(c("BiocManager", "remotes", "R.utils", "dplyr", "optparse", "tidyr"), repos="https://cloud.r-project.org", Ncpus=4)'
 # RUN R -e 'remotes::install_github("mrcieu/ieugwasr")'
 RUN R -e 'remotes::install_github("chr1swallace/coloc@main",build_vignettes=FALSE)'
-
-RUN R -e 'BiocManager::install(c("biomaRt", "liftOver"), Ncpus=4)'
-
-# install plink2
-RUN wget -q https://s3.amazonaws.com/plink2-assets/alpha3/plink2_linux_x86_64_20221024.zip -O /tmp/plink2.zip && \
-    unzip /tmp/plink2.zip && mv plink2 /usr/bin/ && rm /tmp/plink2.zip
-
-# install gcta
-RUN wget -q https://yanglab.westlake.edu.cn/software/gcta/bin/gcta-1.94.1-linux-kernel-3-x86_64.zip -O /tmp/gcta.zip && \
-    unzip /tmp/gcta.zip gcta-1.94.1-linux-kernel-3-x86_64/gcta-1.94.1 && \
-    mv gcta-1.94.1-linux-kernel-3-x86_64/gcta-1.94.1 /usr/bin/gcta && rm /tmp/gcta.zip
-
+RUN R -e 'BiocManager::install("biomaRt")'
+RUN R -e 'install.packages("R.utils", repos="https://cloud.r-project.org")'
+RUN which conda
+# SHELL ["conda", "run", "-n", "container_user", "/bin/bash", "-c"]
+SHELL ["conda", "run", "-n", "root", "/bin/bash", "-c"]
+RUN conda install -c bioconda plink
+RUN conda install -c bioconda gcta
+RUN conda install -c conda-forge r-r.utils
+RUN conda install -c conda-forge unzip 
+RUN which gcta64
+RUN which unzip
+RUN which gzip
 SHELL ["/bin/sh", "-c"]
+COPY gcta_v1.94.1Beta_linux_kernel_5_x86_64_static ${HOME}
+RUN ln -s ${HOME}/gcta_v1.94.1Beta_linux_kernel_5_x86_64_static /usr/bin/gcta
+RUN which gcta

@@ -5,7 +5,7 @@ process COLOC_ON_SIG_VARIANTS {
     label 'process_medium'
     // publishDir "${params.outdir}/coloc/${GWAS}/${eQTL_path}", mode: "${params.copy_mode}"
     if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-        container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
+        container "${params.coloc_container}"
         //// container "/software/hgi/containers/mercury_scrna_deconvolution_latest.img"
     } else {
         container "to be replaced"
