@@ -61,7 +61,7 @@ The nf-core/coloc pipeline comes with documentation about the pipeline [usage](h
 
 ## Credits
 
-nf-core/coloc was originally written by Matiss Ozols.
+nf-core/coloc was originally written by Matiss Ozols, Iaroslav Popov, Charles Solomon, Nicola Pirastu.
 
 We thank the following people for their extensive assistance in the development of this pipeline:
 
