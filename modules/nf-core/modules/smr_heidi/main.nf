@@ -22,6 +22,6 @@ process SMR_HEIDI {
 
     """
         smr --bfile /scratch/vasccell/cs806/colocalization/1000Genome/euroSamps1kGMerge --gwas-summary /scratch/vasccell/cs806/colocalization/zhu_SMR/GWAS_Large_Artery_Stroke_Eur_Mishra_2022_Nature_hg38.txt_hg38_smrHEIDI.txt --beqtl-summary tenQTLs/HUVEC_ATACseq_Cis_eqtls --out smrResults/tenHUVEC_ATAC-SEQ_QTL_Mishra2022_Stroke_LAS_SMR_HEIDI
-        Rscript /scratch/cellfunc/cs806/huvecColoc/huvecColoc_scripts/auto_process_SMR_HEIDI_Results.R smrResults/tenHUVEC_ATAC-SEQ_QTL_Mishra2022_Stroke_LAS_SMR_HEIDI.smr
+        Rscript auto_process_SMR_HEIDI_Results.R smrResults/tenHUVEC_ATAC-SEQ_QTL_Mishra2022_Stroke_LAS_SMR_HEIDI.smr
     """
 }
