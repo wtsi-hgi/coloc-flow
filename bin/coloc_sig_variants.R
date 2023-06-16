@@ -4,7 +4,7 @@ library(coloc)
 # library(susieR)
 library(optparse)
 library(magrittr)
-
+# --config /lustre/scratch123/hgi/projects/bhf_finemap/coloc/pipeline_ip13/input.yml
 option_list <- list(
     make_option('--gwas', action="store", help="path to GWAS summary statistic"),
     make_option('--rs', action="store", help="variant ID"),
@@ -30,12 +30,23 @@ variant = args$rs
 bfile = args$bfile
 plink2_bin = args$plink2_bin
 gcta_bin = args$gcta_bin
+contig = args$config
+
+# eQTL = 'Astrocytes.7.gz'
+# eqtl_marker_file = '/lustre/scratch123/hgi/projects/bhf_finemap/summary_stats/eQTLs/snp_pos.txt'
+# eqtl_samples_number = 192
+# GWAS = 'GIGASTROKE_LAS_EUR_hg19_harmonised.tsv.gz'
+# variant = 'rs79178008'
+# bfile = 'plink_genotypes'
+# plink2_bin = NULL
+# gcta_bin = NULL
+# contig = '/lustre/scratch123/hgi/projects/bhf_finemap/coloc/pipeline_ip13/input.yml'
 
 GWAS_name = tools::file_path_sans_ext(basename(GWAS), compression = T)
 eQTL_name = strsplit(tools::file_path_sans_ext(basename(eQTL)), "\\.")[[1]]
 eQTL_name = paste(eQTL_name[1:length(eQTL_name)-1], collapse = "_")
 
-config <- read_config(args$config, GWAS_name)
+config <- read_config(contig, GWAS_name)
 
 Full_GWAS_Sum_Stats = load_GWAS(GWAS)$map
 Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats)

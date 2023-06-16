@@ -10,8 +10,6 @@ process COLOC_ON_SIG_VARIANTS {
     } else {
         container "to be replaced"
     }
-    container "/lustre/scratch123/hgi/mdt1/projects/bhf_finemap/coloc/pipeline_ip13/coloc-ip13.sif"
-    memory '15 GB'
 
     input:
         tuple val(variant_name), path(gwas_name), path(eQTL_path), val(bfile), path(plink_files)

@@ -10,7 +10,7 @@ process COLOC_FREQ_AND_SNPS {
     } else {
         container "to be replaced"
     }
-    container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/pipeline_ip13/coloc-ip13.sif"
+    
     input: 
         each path(GWAS)
         each path(eqtl_fofn)
@@ -42,7 +42,12 @@ process COLOC_FREQ_AND_SNPS {
 process GWAS_FREQ {
     cpus 1
     memory '6 GB'
-    container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
+    if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+        container "${params.coloc_container}"
+        //// container "/software/hgi/containers/mercury_scrna_deconvolution_latest.img"
+    } else {
+        container "to be replaced"
+    }
     input:
         path(bfile)
     output:

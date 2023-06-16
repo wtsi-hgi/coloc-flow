@@ -24,7 +24,7 @@ process COLOC_RUN {
             .split("\\.\\d")[0]
     """
         echo ${eQTL_path} > eQTL_path.txt
-        coloc_GWAS.R ${eQTL} ${GWAS}
+        coloc_GWAS.R ${eQTL} ${GWAS} ${params.bfile}
         echo Done > Done.tmp
     """
 }

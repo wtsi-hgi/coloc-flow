@@ -11,8 +11,8 @@ option_list <- list(
 args <- parse_args(OptionParser(option_list=option_list))
 
 GWAS = fs::link_path(args$gwas)
-print(GWAS)
-
+# print(GWAS)
+# GWAS = fs::link_path('GIGASTROKE_LAS_EUR_hg19_harmonised.tsv.gz')
 source('dataIO.R')
 source('helpers.R')
 
@@ -28,7 +28,9 @@ fwrite(Significant_GWAS_Signals, file=paste0(GWAS_name,".sig_signals.list"), sep
 Significant_GWAS_Signals2 = copy(Significant_GWAS_Signals)
 
 eqtls <- readLines(args$eqtl_fofn)
+# eqtls <- readLines('eqtl.14.list' )
 eqtl_marker_data <- read_eqtl_marker_file(args$eqtl_snps)
+eqtl_marker_data <- read_eqtl_marker_file('snp_pos.txt')
 
 data_list <- lapply(eqtls, function(val){
   # Here we reduce the computational testing burden of spining up and reading in same file multiple times

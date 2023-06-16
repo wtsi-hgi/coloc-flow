@@ -3,6 +3,7 @@
 args = commandArgs(trailingOnly=TRUE)
 eQTL = args[1] #'samplename'
 GWAS =args[2] # '../donor_ids.tsv'
+plink = args[3]
 # eQTL="/lustre/scratch123/hgi/projects/bhf_finemap/summary_stats/eQTLs/all/Inhibitory.neurons.2.gz"
 # GWAS="/lustre/scratch123/hgi/projects/bhf_finemap/summary_stats/Intracerebral_Hemorrhage/3980413.Woo.2014.zip"
 print('eQTL')
@@ -30,7 +31,7 @@ library(biomaRt)
 #devtools::install_github("mrcieu/gwasglue")
 susie_rss_fit_GWAS <- function(outcome){
     # outcome=variants_of_interest[match(info$SNP,variants_of_interest$variant_id),]
-    ld_GWAS=ieugwasr::ld_matrix(variants = outcome$variant_id, bfile = "/lustre/scratch123/hgi/projects/bhf_finemap/imputation/uk10k_1000g_blueprint/plink_genotypes/plink_genotypes", plink_bin = "/software/hgi/installs/anaconda3/envs/hgi_base/bin/plink")
+    ld_GWAS=ieugwasr::ld_matrix(variants = outcome$variant_id, bfile = plink, plink_bin = "/software/hgi/installs/anaconda3/envs/hgi_base/bin/plink")
     info=as.data.frame(matrix(unlist(apply(t(row.names(ld_GWAS)),MARGIN = 1,function(x)strsplit(x,split="_"))),ncol=3,byrow = T))
     names(info)=c("SNP","a0","a1")
     outcome=outcome[match(info$SNP,outcome$variant_id),]
@@ -56,7 +57,7 @@ susie_rss_fit_GWAS <- function(outcome){
 susie_rss_fit <- function(single_eqtl){
 
   # eQTL
-  ld_eQLT=ieugwasr::ld_matrix(variants = single_eqtl$SNP, bfile = "/lustre/scratch123/hgi/projects/bhf_finemap/imputation/uk10k_1000g_blueprint/plink_genotypes/plink_genotypes", plink_bin = "/software/hgi/installs/anaconda3/envs/hgi_base/bin/plink")
+  ld_eQLT=ieugwasr::ld_matrix(variants = single_eqtl$SNP, bfile = plink, plink_bin = "/software/hgi/installs/anaconda3/envs/hgi_base/bin/plink")
   info=as.data.frame(matrix(unlist(apply(t(row.names(ld_eQLT)),MARGIN = 1,function(x)strsplit(x,split="_"))),ncol=3,byrow = T))
   names(info)=c("SNP","a0","a1")
   single_eqtl=single_eqtl[match(info$SNP,single_eqtl$SNP),]
@@ -210,7 +211,7 @@ for (row in 1:nrow(map2)){
           # if (length(fitted_eqtl$sets$cs)>0){
               # GWAS
               
-              jpeg(paste('/lustre/scratch123/hgi/projects/bhf_finemap/coloc/tmp/',variant_id,'_',qtl1,'_',chromosome1,'rplowt.jpg',sep=''))
+              jpeg(paste('',variant_id,'_',qtl1,'_',chromosome1,'rplowt.jpg',sep=''))
                 par(mfrow=c(2,1))
                 plot(outcome2$base_pair_location,-log10(outcome2$p_value),col=ifelse(outcome2$base_pair_location %in% c(base_pair_location$base_pair_location), 'red', 'black'),pch=19,xlim = c(range_min$base_pair_location-1000000,range_max$base_pair_location+1000000),ylim=c(0,round(max(-log10(outcome$p_value))+1)), lty = 1,lwd=1)
                 par(new=TRUE)
