@@ -40,7 +40,7 @@ smr3 <- smr2[!is.na(smr2$p_HEIDI), ]
 # Plot Manhattan and export results
 if (dim(smr3)[1] != 0) {
   #manhattan plot
-  png(filename = paste0("/scratch/cellfunc/cs806/huvecColoc/smrResults/manhattanPlots/", aha2, "_SMRHEIDImanhattan.png"))
+  png(filename = paste0("./smrResults/manhattanPlots/", aha2, "_SMRHEIDImanhattan.png"))
   
   manhattan(smr3, chr = "topSNP_chr", bp = "topSNP_bp", p = "p_HEIDI", snp = "topSNP_rsID",
             col = c("gray10", "gray60"), chrlabs = NULL, logp = TRUE,
@@ -52,9 +52,9 @@ if (dim(smr3)[1] != 0) {
   smr4 <- subset(smr2, smr2$p_SMR < 0.05 & smr2$p_HEIDI > 0.05)
   smr5 <- subset(smr2, smr2$p_SMR < 0.05)
   
-  write.csv(smr2, paste0("/scratch/cellfunc/cs806/huvecColoc/smrResults/resultTables/", aha2, ".csv"), row.names = F)
-  write.csv(smr4, paste0("/scratch/cellfunc/cs806/huvecColoc/smrResults/resultTables/", aha2, "_sig_p_HEIDI.csv"), row.names = F)
-  write.csv(smr5, paste0("/scratch/cellfunc/cs806/huvecColoc/smrResults/resultTables/", aha2, "_sig_p_SMR.csv"), row.names = F)
+  write.csv(smr2, paste0("./smrResults/resultTables/", aha2, ".csv"), row.names = F)
+  write.csv(smr4, paste0("./smrResults/resultTables/", aha2, "_sig_p_HEIDI.csv"), row.names = F)
+  write.csv(smr5, paste0("./smrResults/resultTables/", aha2, "_sig_p_SMR.csv"), row.names = F)
   
 } else if (dim(smr3)[1] == 0) {
   cat(" \n")

@@ -30,7 +30,7 @@ for filename in *GWAS.txt; do
     echo ${qtlZ}
     echo ${qtlLD}
     
-    /home/c/cs806/caviar/CAVIAR-C++/eCAVIAR -l ${gwasLD} -z ${gwasZ} -l  ${qtlLD} -z ${qtlZ} -o ${gwasZ}
+    eCAVIAR -l ${gwasLD} -z ${gwasZ} -l  ${qtlLD} -z ${qtlZ} -o ${gwasZ}
     
 done
 
