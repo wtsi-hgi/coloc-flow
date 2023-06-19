@@ -1,0 +1,7 @@
+gwas:
+- name: GIGASTROKE_AIS_EUR_hg19_harmonised
+  build: hg19
+  type: cc
+
+eqtl:
+  samples_number: 192

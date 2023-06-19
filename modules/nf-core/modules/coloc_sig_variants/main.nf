@@ -1,9 +1,9 @@
 
 process COLOC_ON_SIG_VARIANTS {
-    tag "${variant}"
+    tag "${variant_name}"
     
     label 'process_medium'
-    // publishDir "${params.outdir}/coloc/${GWAS}/${eQTL_path}", mode: "${params.copy_mode}"
+    publishDir "${params.outdir}/coloc/${gwas_name}/${eQTL_path}", mode: "${params.copy_mode}"
     if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
         container "${params.coloc_container}"
         //// container "/software/hgi/containers/mercury_scrna_deconvolution_latest.img"
@@ -15,8 +15,9 @@ process COLOC_ON_SIG_VARIANTS {
         tuple val(variant_name), path(gwas_name), path(eQTL_path), val(bfile), path(plink_files)
 
     output:
-        path('Done.tmp', emit: done)
-
+        path 'coloc_results.csv', emit: done optional true 
+        path('*.jpg') optional true 
+        path('*.pdf') optional true 
     script:
     """
     cp $projectDir/bin/dataIO.R ./dataIO.R
