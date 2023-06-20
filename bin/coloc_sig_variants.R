@@ -32,15 +32,15 @@ plink2_bin = args$plink2_bin
 gcta_bin = args$gcta_bin
 contig = args$config
 
-# eQTL = 'Astrocytes.7.gz'
-# eqtl_marker_file = '/lustre/scratch123/hgi/projects/bhf_finemap/summary_stats/eQTLs/snp_pos.txt'
+# eQTL = 'Astrocytes.11.gz'
+# eqtl_marker_file = '/scratch/cellfunc/mo246/coloc/work/e8/a173affb86b9f530d843e3a8236c48/snp_pos.txt'
 # eqtl_samples_number = 192
-# GWAS = 'GIGASTROKE_LAS_EUR_hg19_harmonised.tsv.gz'
-# variant = 'rs79178008'
-# bfile = 'plink_genotypes'
+# GWAS = 'GIGASTROKE_AS_EUR_hg19_harmonised.tsv.gz'
+# variant = 'rs28381684'
+# bfile = 'Imputed_Genotypes_Data_All_HUVEC_Samples'
 # plink2_bin = NULL
 # gcta_bin = NULL
-# contig = '/lustre/scratch123/hgi/projects/bhf_finemap/coloc/pipeline_ip13/input.yml'
+# contig = '/lustre/alice3/scratch/cellfunc/mo246/coloc/coloc/assets/sample_input/input.yml'
 
 GWAS_name = tools::file_path_sans_ext(basename(GWAS), compression = T)
 eQTL_name = strsplit(tools::file_path_sans_ext(basename(eQTL)), "\\.")[[1]]
@@ -139,7 +139,7 @@ cojo_out <- run_cojo(
     pvalue = cojo_strict_threshold,
     out_prefix = paste(variant_id, GWAS_name, "step1", sep = "_")
 )
-
+# bin = NULL, bfile, marker_list = NULL, conditional_markers = NULL, summary_stat, pvalue, out_prefix
 coloc_results <- list()
 if(!file.exists(cojo_out$independent_signals)){
     warning('No independant SNPs in GWAS found')

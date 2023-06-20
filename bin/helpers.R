@@ -182,7 +182,7 @@ read_config <- function (path, gwas_name){
     gwas_config <- list()
 
     if(!is.null(path)){
-        config <- yaml::read_yaml(args$config)
+        config <- yaml::read_yaml(path)
         gwas_in_config <- purrr::map_lgl(config$gwas, ~ .$name == gwas_name)
         if(any(gwas_in_config)){
             gwas_config <- config$gwas[[which(gwas_in_config)]]

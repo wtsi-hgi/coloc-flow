@@ -31,6 +31,7 @@ make_cojo_df <- function(df, source = c('gwas', 'eqtl')){
 
 # a small wrapper for system calls with return code check
 run_tool <- function (bin, args){
+    
     print(paste(c(bin, args), collapse = ' '))
     logfile <- tempfile()
     rc <- system2(command = bin, args = args, stdout = logfile)
@@ -137,6 +138,16 @@ extract_locus <- function (bin = NULL, genotypes_prefix, chrom, start, end, filt
 
     run_plink2(bin = bin, args = plink_args)
     file.remove(range_filename)
+    # ensure the same names are used in the bim file othervise the cojo vill fail
+    bim_file <- fread(paste0(out_prefix, '.bim'))
+    bim_file$chr_pos = paste0(bim_file$V1,'-',bim_file$V4)
+    marker.data <- read_eqtl_marker_file(eqtl_marker_file)
+    marker.data$chr_pos = paste0(marker.data$chromosome,'-',marker.data$base_pair_location)
+    d <- merge(bim_file, marker.data[c("SNP", "chr_pos")], by = "chr_pos", all.x = T)
+    d$V2 = d$SNP
+    d2 = subset(d, select = -c(chr_pos, SNP))
+    d2[is.na(d2)] <- '.'
+    fwrite(d2, file = paste0(out_prefix, '.bim'), row.names = F,col.names = F, quote = F, sep = "\t")
 
     return(out_prefix)
 }

@@ -72,7 +72,7 @@ workflow COLOC {
 
     // Have to run this on each of the eQTL files separately.
     COLOC_ON_SIG_VARIANTS(
-        variant_id.combine(plink_files)
+        variant_id.combine(plink_files),params.eqtl_snps
     )
     // variant_id.view()
     // variant_id

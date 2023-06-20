@@ -159,7 +159,7 @@ foreach(rr = 1:nrow(topSigQTL), .combine = rbind) %dopar% {
 
 
 # Run eCAVIAR -------------------------------------------------------------
-system(paste0("cp /scratch/vasccell/cs806/colocalization/colocalization_scripts/eCAVIAR_script.sh ", folder))
+# system(paste0("cp /scratch/vasccell/cs806/colocalization/colocalization_scripts/eCAVIAR_script.sh ", folder))
 setwd(folder)
 system(paste0("bash eCAVIAR_script.sh"))
 setwd("../../")

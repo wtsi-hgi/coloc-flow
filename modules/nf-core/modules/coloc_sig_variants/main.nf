@@ -13,7 +13,7 @@ process COLOC_ON_SIG_VARIANTS {
 
     input:
         tuple val(variant_name), path(gwas_name), path(eQTL_path), val(bfile), path(plink_files)
-
+        path(eqtl_snps)
     output:
         path 'coloc_results.csv', emit: done optional true 
         path('*.jpg') optional true 
@@ -28,7 +28,7 @@ process COLOC_ON_SIG_VARIANTS {
             --rs ${variant_name} \
             --bfile ${bfile} \
             --eqtl ${eQTL_path} \
-            --eqtl_snps ${params.eqtl_snps} \
+            --eqtl_snps ${eqtl_snps} \
             --config ${params.yaml}
         echo ${variant_name} > Done.tmp
     """
