@@ -5,23 +5,24 @@ process COLOC_FREQ_AND_SNPS {
     label 'process_low'
     // publishDir "${params.outdir}/coloc/${GWAS}/${eQTL_path}", mode: "${params.copy_mode}"
     if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-        container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
+        container "${params.coloc_container}"
         //// container "/software/hgi/containers/mercury_scrna_deconvolution_latest.img"
     } else {
         container "to be replaced"
     }
-    container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
+    
     input: 
-        path(GWAS)
-        path(bfile)
+        each path(GWAS)
+        each path(eqtl_fofn)
+        path(eqtl_snps)
+        path(rsid_mappings_file)
+        path(rsid_mappings_file_csi)
 
     output:
         // path('Done.tmp')
         path('*.sig_signals.list', emit: sig_signals)
-        path('*.frqx', emit: frqx)
-        path("Filtered_${gwas_name}", emit: bed_file)
-        path('*all_signals.tsv',emit: sig_signals_eqtls)
-        path(GWAS,emit: GWAS)
+        path('*all_signals.tsv', emit: sig_signals_eqtls)
+        path(GWAS, emit: GWAS)
 
 
     script:
@@ -30,15 +31,33 @@ process COLOC_FREQ_AND_SNPS {
             // outfile = "${file__anndata}".minus(".h5ad")
             // .split("-").drop(1).join("-")
     """
-        
-       
-        coloc_GWAS_frq.R ${GWAS} ${bfile} ${params.input_table}
-        mkdir Filtered_${gwas_name}
-        mv ${gwas_name}.bed Filtered_${gwas_name}/Filtered_${gwas_name}.bed
-        mv ${gwas_name}.bim Filtered_${gwas_name}/Filtered_${gwas_name}.bim
-        mv ${gwas_name}.fam Filtered_${gwas_name}/Filtered_${gwas_name}.fam
+        cp $projectDir/bin/dataIO.R ./
+        cp $projectDir/bin/helpers.R ./
+        coloc_GWAS_frq.R \
+            --gwas ${GWAS} \
+            --eqtl_fofn ${eqtl_fofn} \
+            --eqtl_snps ${eqtl_snps}
         echo ${gwas_name} > Done.tmp
     """
 }
 
-
+process GWAS_FREQ {
+    cpus 1
+    memory '6 GB'
+    if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+        container "${params.coloc_container}"
+        //// container "/software/hgi/containers/mercury_scrna_deconvolution_latest.img"
+    } else {
+        container "to be replaced"
+    }
+    input:
+        path(bfile)
+    output:
+        path(${outfile}, emit: bfile)
+        path("*.frq", emit: frq)
+    script:
+    outfile = ${bfile.name}.filtered
+    """
+        plink --bfile ${bfile} --maf 0.0001 --make-bed --freq --out ${outfile}
+    """
+}

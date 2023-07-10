@@ -1,130 +1,85 @@
 #!/usr/bin/env Rscript
-args = commandArgs(trailingOnly=TRUE)
-GWAS = args[1] #'samplename'
-bfile = args[2] #'samplename'
-coloc_input_file = args[3]
-# GWAS = 'GCST90014122_buildGRCh37.tsv'
-
-# bfile = '.'
-print(GWAS)
-print(bfile)
-
-library(biomaRt)
+library(optparse)
 library(data.table)
-library(coloc)
-library(susieR)
-
-load_GWAS <- function(GWAS){
-
-  GWAS_ext = tail(strsplit(GWAS,split="\\.")[[1]],n=1)
-  GWAS_name = strsplit(tail(strsplit(GWAS,split="\\/")[[1]],n=1),split="\\.")[[1]][1]
-
-  if(GWAS_ext=='zip'){
-    print('zip')
-    map=fread(paste('unzip -p ',GWAS,sep=''))
-
-  } else if (GWAS_ext=='gz'){
-    map=fread(paste('gunzip -cq ',GWAS,sep=''))
-  } else{
-    map=fread(GWAS)
-  }
-
-  #Gwas col rename
-  names(map)[names(map) == 'P'] <- "p_value"
-  names(map)[names(map) == 'REF'] <- "effect_allele"
-  names(map)[names(map) == 'ALT'] <- "other_allele"
-  names(map)[names(map) == 'CHROM'] <- "chromosome"
-  names(map)[names(map) == 'ID'] <- "variant_id"
-  names(map)[names(map) == 'POS'] <- "base_pair_location"
-  names(map)[names(map) == 'BETA'] <- "beta"
-  names(map)[names(map) == 'SE'] <- "standard_error"
-
-  names(map)[names(map) == 'P-value'] <- "p_value"
-  names(map)[names(map) == 'Allele1'] <- "effect_allele"
-  names(map)[names(map) == 'Allele2'] <- "other_allele"
-  names(map)[names(map) == 'CHR'] <- "chromosome"
-  names(map)[names(map) == 'MarkerName'] <- "variant_id"
-  names(map)[names(map) == 'pos'] <- "base_pair_location"
-  names(map)[names(map) == 'Effect'] <- "beta"
-  names(map)[names(map) == 'StdErr'] <- "standard_error"
-
-  names(map)[names(map) == 'P-value'] <- "p_value"
-  names(map)[names(map) == 'Allele1'] <- "effect_allele"
-  names(map)[names(map) == 'Allele2'] <- "other_allele"
-  names(map)[names(map) == 'CHR'] <- "chromosome"
-  names(map)[names(map) == 'MarkerName'] <- "variant_id"
-  names(map)[names(map) == 'pos'] <- "base_pair_location"
-  names(map)[names(map) == 'Effect'] <- "beta"
-  names(map)[names(map) == 'StdErr'] <- "standard_error"
-  names(map)[names(map) == 'NStudies'] <- "N"
-
-
-  return_list <- list("map" = map, "GWAS_name" = GWAS_name)
-  return(return_list)
-
-}
-
-load_eqtl <- function(eQTL,Full_GWAS_Sum_Stats){
-  #### Eqtl data
-  eqtl.file=eQTL #downloaded from Zenodo
-  eqtl=fread(eqtl.file)
-  names(eqtl)=c("gene","SNP","TSS_dist","p","beta")
-  eqtl$se=abs(eqtl$beta)/sqrt(qchisq(eqtl$p,df = 1,lower.tail = F))
-  Celltype=tail(strsplit(eqtl.file,split="/")[[1]],n=1)
-  Celltype=gsub('\\.','_',Celltype)
-  single_eqtl1 = eqtl
-
-  # Here we diver a bit and add the positional info to the SNPs if available.
-  single_eqtl1$ea_allele=Full_GWAS_Sum_Stats$effect_allele[match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)]
-  single_eqtl1$oth_allele=Full_GWAS_Sum_Stats$other_allele[match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)]
-  single_eqtl1$chromosome=Full_GWAS_Sum_Stats$chromosome[match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)]
-  single_eqtl1$base_pair_location=Full_GWAS_Sum_Stats$base_pair_location[match(single_eqtl1$SNP,Full_GWAS_Sum_Stats$variant_id)]
-  single_eqtl1 = single_eqtl1[!is.na(single_eqtl1$ea_allele)]
-
-  #eQTL col rename
-  
-  names(single_eqtl1)[names(single_eqtl1) == 'p'] <- "p_value"
-  names(single_eqtl1)[names(single_eqtl1) == 'ea_allele'] <- "effect_allele"
-  names(single_eqtl1)[names(single_eqtl1) == 'oth_allele'] <- "other_allele"
-  names(single_eqtl1)[names(single_eqtl1) == 'SNP'] <- "variant_id"
-  names(single_eqtl1)[names(single_eqtl1) == 'base_pair_location'] <- "base_pair_location"
-  names(single_eqtl1)[names(single_eqtl1) == 'beta'] <- "beta"
-  names(single_eqtl1)[names(single_eqtl1) == 'se'] <- "standard_error"
-  return (single_eqtl1)
-}
+library(dplyr)
+library(data.table)
+requireNamespace('dplyr')
+requireNamespace('tidyr')
+library("stringr") 
+eqtl_significance_threshold <- 5e-5
+option_list <- list(
+    make_option('--gwas', action="store", help="path to GWAS summary statistic"),
+    make_option('--eqtl_fofn', action="store", help="path to fofn of eqtls"),
+    make_option('--eqtl_snps', action="store", help = "path to eqtl snp_pos.txt file")
+)
+args <- parse_args(OptionParser(option_list=option_list))
+# args$gwas = 'GIGASTROKE_AIS_EUR_hg19_harmonised.tsv.gz'
+# args$eqtl_fofn = '/scratch/cellfunc/mo246/coloc/work/a3/b40dd3808313bcb64d3a49251b824c/eqtl.1.list'
+# args$eqtl_snps = '/scratch/cellfunc/mo246/coloc/work/a3/b40dd3808313bcb64d3a49251b824c/snp_pos.txt'
+GWAS = fs::link_path(args$gwas)
+# print(GWAS)
+# GWAS = fs::link_path('GIGASTROKE_LAS_EUR_hg19_harmonised.tsv.gz')
+source('dataIO.R')
+source('helpers.R')
 
 return_list = load_GWAS(GWAS)
-Full_GWAS_Sum_Stats=return_list$map
-GWAS_name=return_list$GWAS_name
-Significant_GWAS_Signals = Full_GWAS_Sum_Stats[Full_GWAS_Sum_Stats$p_value< 5e-8]
-
-write(Full_GWAS_Sum_Stats$variant_id,ncol=1,file=paste0(GWAS_name,".snp.list"),sep = "\t")
-Significant_GWAS_Signals$gwas_name=paste(Significant_GWAS_Signals$variant_id,'--',GWAS,sep='')
+Full_GWAS_Sum_Stats = return_list$map
+GWAS_name = return_list$GWAS_name
+Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats)
+groups <- make_gwas_groups(Significant_GWAS_Signals)
 
 # Here we should loop through the input file eQTLs for the particular GWAS and replicate the table so many times
 
-write.table(Significant_GWAS_Signals,file=paste0(GWAS_name,".sig_signals.list"),sep = "\t",quote = FALSE,row.names = FALSE)
-# GWAS_name='GCST90014122_buildGRCh37'
-Significant_GWAS_Signals2 = read.table(paste0(GWAS_name,".sig_signals.list"),sep = "\t",header=TRUE)
-coloc_input = read.table(coloc_input_file,header=TRUE)
-all_eQTLs_associated_with_this_GWAS = coloc_input[coloc_input$GWAS  %like% GWAS_name,]
-Data2 = data.table()
+fwrite(Significant_GWAS_Signals, file=paste0(GWAS_name,".sig_signals.list"), sep = "\t", quote = FALSE, row.names = FALSE)
+Significant_GWAS_Signals2 = copy(Significant_GWAS_Signals)
 
-for (val in all_eQTLs_associated_with_this_GWAS$eQTL){
-  # Here we redune the computational testing burden of spining up and reading in same file multiple times by prereading the files here and seeing whether there is a signal in the ceirtain file on the particular chromosomes where GWAS signal is present.
-  single_eqtl1 = load_eqtl(val,Full_GWAS_Sum_Stats)
-  single_eqtl2 = single_eqtl1[single_eqtl1$p_value<5e-5]
+eqtls <- readLines(args$eqtl_fofn)
+# eqtls <- readLines('eqtl.14.list' )
+eqtl_marker_data <- read_eqtl_marker_file(args$eqtl_snps)
+
+
+data_list <- lapply(eqtls, function(val){
+  print(val)
+  # val='https://yascp.cog.sanger.ac.uk/public/coloc/Astrocytes.13.gz'
+  # val='/scratch/cellfunc/shared/HUVEC_RNAseq/eQTLs_norm_counts/TensorQTL_eQTLS/general/nom_output/cis_nominal1.cis_qtl_pairs.chr1.tsv'
+  # Here we reduce the computational testing burden of spining up and reading in same file multiple times
+  # by prereading the files here and seeing whether there is a signal in the ceirtain file on the particular chromosomes where GWAS signal is present.
+  single_eqtl2 = load_eqtl(val, marker.data = eqtl_marker_data,eqtl_significance_threshold=eqtl_significance_threshold)
+  
   uq1 = unique(single_eqtl2$chromosome)
   un2 = unique(Significant_GWAS_Signals2$chromosome)
-  int1 = intersect(un2,uq1)
+  int1 = intersect(un2, uq1)
   if(length(int1)>0){
       # We only bind the eQTL file if both contain a signal on a specific chromosome.
       # furthermore we should only select the variants that are on particular chromosomes for the analysis.
-      Significant_GWAS_Signals_new = Significant_GWAS_Signals2[Significant_GWAS_Signals2$chromosome %in% unique(single_eqtl2$chromosome),]
-      Significant_GWAS_Signals_new$gwas_name2 = paste(Significant_GWAS_Signals_new$gwas_name,'--',val,sep='')
-      Data2 = rbind(Data2, Significant_GWAS_Signals_new) 
-  }
-}
+      Significant_GWAS_Signals_new = Significant_GWAS_Signals2[Significant_GWAS_Signals2$chromosome %in% uq1, ]
+      Significant_GWAS_Signals_new$base_pair_location_end = Significant_GWAS_Signals_new$base_pair_location
 
-write.table(Data2,file=paste0(GWAS_name,"_all_signals.tsv"),sep = "\t",quote = FALSE,row.names = FALSE)
-system(paste("plink --bfile ",bfile,"/plink_genotypes --extract ",GWAS_name,".snp.list --maf 0.0001 --make-bed --freqx --out ",GWAS_name,sep=''))
+      # from each window of significant markers choose the middle one
+      data.table::foverlaps(Significant_GWAS_Signals_new, groups,
+                      type = 'within',
+                      by.x = c('chromosome', 'base_pair_location', 'base_pair_location_end')) %>%
+        add_count(variant_id) %>%
+        filter(n == 1) -> group_markers
+
+      if(nrow(group_markers) == 0){
+        stop('No biallelic markers in significance region!')
+      }
+
+      group_markers %>%
+          group_by(group_id) %>%
+          arrange(base_pair_location) %>%
+          summarise(variant_id = variant_id[ceiling(n()/2)]) -> representative_snps
+      representative_snps$gwas_name = paste(representative_snps$variant_id, GWAS, sep='--')
+      representative_snps$gwas_name2 = paste(representative_snps$gwas_name, val, sep='--')
+  } else {
+      representative_snps <- data.table()
+  }
+  return(representative_snps)
+})
+
+Data2 <- rbindlist(data_list)
+
+if(ncol(Data2) == 0) Data2 <- data.table(gwas_name2 = character())
+
+fwrite(Data2, file=paste0(GWAS_name, "_all_signals.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)

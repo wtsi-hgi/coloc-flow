@@ -32,9 +32,9 @@
 ========================================================================================
 */
 
-include { COLOC_RUN } from '../modules/nf-core/modules/coloc/main' 
-include { COLOC_FREQ_AND_SNPS } from '../modules/nf-core/modules/coloc_frq/main' 
-include { COLOC_ON_SIG_VARIANTS } from '../modules/nf-core/modules/coloc_sig_variants/main' 
+include { COLOC_FREQ_AND_SNPS } from '../modules/nf-core/modules/coloc_frq/main'
+// include { GWAS_FREQ } from '../modules/nf-core/modules/coloc_frq/main'
+include { COLOC_ON_SIG_VARIANTS } from '../modules/nf-core/modules/coloc_sig_variants/main'
 /*
 ========================================================================================
     RUN MAIN WORKFLOW
@@ -45,53 +45,40 @@ include { COLOC_ON_SIG_VARIANTS } from '../modules/nf-core/modules/coloc_sig_var
 def multiqc_report = []
 workflow COLOC {
 
-    // 
-    input_channel = Channel.fromPath(params.input_table, followLinks: true, checkIfExists: true)
-       
-    // input_table
-    input_channel
-        .splitCsv(header: true, sep: params.input_tables_column_delimiter)
-        .map{row->tuple(row.GWAS, row.eQTL)}
-        .set{input_gwas_eqtl}
+    // read lists of GWAS and eQTL statistics fofns
+    gwas_list = Channel
+        .fromPath(params.gwas_list, followLinks: true, checkIfExists: true)
+        .splitText()
 
-    input_channel
-        .splitCsv(header: true, sep: params.input_tables_column_delimiter)
-        .map{row->row.GWAS}.unique()
-        .set{input_gwas}
+    eqtl_fofn = Channel
+        .fromPath(params.eqtl_list, followLinks: true, checkIfExists: true)
+        .splitText( by: 10, file: true )
 
-    input_channel
-        .splitCsv(header: true, sep: params.input_tables_column_delimiter)
-        .map{row->row.eQTL}.unique()
-        .set{input_eQTL}
-    
+    eqtl_snps = Channel
+        .fromPath(params.eqtl_snps, followLinks: true, checkIfExists: true)
 
-    // maybe should do cojo first
-    // /home/container_user/conda/bin/plink --bfile bfile --extract list_of_snips_455666.snp.list --maf 0.0001 --make-bed --freqx --out 455666
-
-
-    // gcta --bfile 455666 --cojo-p 1e-4 --extract 455666.snp.list --cojo-file 455666_sum.txt --cojo-slct --out 455666_step1"
-    // gcta --bfile 455666  --extract 455666.snp.list  --cojo-file 455666_sum.txt  --cojo-cond 455666_independent.snp --out 455666_step2
-    // gcta --bfile 455666 --cojo-p 1e-4 --extract 455666.snp.list  --cojo-file 455666_sum.txt --cojo-slct --cojo-cond 455666_independent.snp --out 455666_step2
+    plink_files = Channel
+        .fromFilePairs("${params.bfile}.{bed,bim,fam}", checkIfExists: true, size: 3)
 
     // Calculate frequencies and extract number of significant GWAS hits for each input GWAS sum stats.
-    COLOC_FREQ_AND_SNPS(input_gwas,params.bfile)
-    // Then for each of the GWAS independent SNPs and each of the corresponding eQTLs we generate a new job - we can split this up lated on even more.
-    // COLOC_FREQ_AND_SNPS.out.sig_signals_eqtls.splitCsv(header: true, sep: '\t', by: 1)
-    //     .map { row -> tuple(row.gwas_name2.split('--')[0],row.gwas_name2.split('--')[1],row.gwas_name2.split('--')[2] )}
-    //     .set { variant_id }
-    COLOC_FREQ_AND_SNPS.out.sig_signals_eqtls.splitCsv(header: true, sep: '\t', by: 1)
-        .map { row -> row.gwas_name2}
-        .set { variant_id }
-        
-    // Have to run this on each of the eQTL files seperately. 
+    COLOC_FREQ_AND_SNPS(gwas_list, eqtl_fofn, eqtl_snps, params.rsid_mappings_file, "${params.rsid_mappings_file}.csi")
 
-    COLOC_ON_SIG_VARIANTS(variant_id,COLOC_FREQ_AND_SNPS.out.sig_signals.collect(),COLOC_FREQ_AND_SNPS.out.bed_file.collect(),COLOC_FREQ_AND_SNPS.out.frqx.collect(),COLOC_FREQ_AND_SNPS.out.GWAS.collect())
+    // Then for each of the GWAS independent SNPs and each of the corresponding eQTLs we generate a new job - we can split this up later on even more.
+    COLOC_FREQ_AND_SNPS.out.sig_signals_eqtls
+        .splitCsv(header: true, sep: '\t', by: 1)
+        .map { row -> row.gwas_name2.split("--") }
+        .map { it -> [it[0], it[1], it[2]] }
+        .set { variant_id }
+
+    // Have to run this on each of the eQTL files separately.
+    COLOC_ON_SIG_VARIANTS(
+        variant_id.combine(plink_files),eqtl_snps,params.rsid_mappings_file, "${params.rsid_mappings_file}.csi"
+    )
     // variant_id.view()
     // variant_id
     //   .subscribe onNext: {println "variant_id: $it"},
     //   onComplete: {println "variant_id: done"}
-      
-    // COLOC_RUN(input_gwas_eqtl)
+
 }
 
 /*

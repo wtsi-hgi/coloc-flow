@@ -1,35 +1,37 @@
 
 process COLOC_ON_SIG_VARIANTS {
-    tag "${variant}"
+    tag "${variant_name}"
     
-    label 'process_tiny'
-    // publishDir "${params.outdir}/coloc/${GWAS}/${eQTL_path}", mode: "${params.copy_mode}"
+    label 'process_medium'
+    publishDir "${params.outdir}/coloc/${gwas_name}/${eQTL_path}", mode: "${params.copy_mode}"
     if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
-        container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
+        container "${params.coloc_container}"
         //// container "/software/hgi/containers/mercury_scrna_deconvolution_latest.img"
     } else {
         container "to be replaced"
     }
-    container "/lustre/scratch123/hgi/projects/bhf_finemap/coloc/coloc.img"
+
     input:
-        each variant
-        path(sig_signals)
-        path(ped_file_folder)
-        path(frx_file)
-        path(GWAS)
-
+        tuple val(variant_name), path(gwas_name), path(eQTL_path), val(bfile), path(plink_files)
+        each path(eqtl_snps)
+        each path(rsid_mappings_file)
+        each path(rsid_mappings_file_csi)
     output:
-        // path('Done.tmp')
-        path('Done.tmp', emit: done)
-
+        path 'coloc_results.csv', emit: done optional true 
+        path('*.jpg') optional true 
+        path('*.pdf') optional true 
     script:
-    // gwas_name = "${frx_file}".minus(".random").split(/\./)[0]
-    gwas_name ="${variant}".split("--")[1]
-    eQTL_path ="${variant}".split("--")[2]
-    variant_name ="${variant}".split("--")[0]
     """
+    cp $projectDir/bin/dataIO.R ./dataIO.R
+    cp $projectDir/bin/cojo.R ./cojo.R
+    cp $projectDir/bin/helpers.R ./helpers.R
+        coloc_sig_variants.R \
+            --gwas ${gwas_name} \
+            --rs ${variant_name} \
+            --bfile ${bfile} \
+            --eqtl ${eQTL_path} \
+            --eqtl_snps ${eqtl_snps} \
+            --config ${params.yaml}
         echo ${variant_name} > Done.tmp
-        echo ${gwas_name}
-        echo ${eQTL_path}
     """
 }
