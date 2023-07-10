@@ -61,7 +61,7 @@ workflow COLOC {
         .fromFilePairs("${params.bfile}.{bed,bim,fam}", checkIfExists: true, size: 3)
 
     // Calculate frequencies and extract number of significant GWAS hits for each input GWAS sum stats.
-    COLOC_FREQ_AND_SNPS(gwas_list, eqtl_fofn, eqtl_snps, params.rsid_mappings_file, "${params.rsid_mappings_file}.csi")
+    COLOC_FREQ_AND_SNPS(gwas_list, eqtl_fofn, eqtl_snps, params.rsid_mappings_file, params.rsid_mappings_idx_file)
 
     // Then for each of the GWAS independent SNPs and each of the corresponding eQTLs we generate a new job - we can split this up later on even more.
     COLOC_FREQ_AND_SNPS.out.sig_signals_eqtls
@@ -72,7 +72,7 @@ workflow COLOC {
 
     // Have to run this on each of the eQTL files separately.
     COLOC_ON_SIG_VARIANTS(
-        variant_id.combine(plink_files),eqtl_snps,params.rsid_mappings_file, "${params.rsid_mappings_file}.csi"
+        variant_id.combine(plink_files),eqtl_snps,params.rsid_mappings_file, params.rsid_mappings_idx_file
     )
     // variant_id.view()
     // variant_id
