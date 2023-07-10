@@ -140,13 +140,24 @@ extract_locus <- function (bin = NULL, genotypes_prefix, chrom, start, end, filt
     file.remove(range_filename)
     # ensure the same names are used in the bim file othervise the cojo vill fail
     bim_file <- fread(paste0(out_prefix, '.bim'))
-    bim_file$chr_pos = paste0(bim_file$V1,'-',bim_file$V4)
-    marker.data <- read_eqtl_marker_file(eqtl_marker_file)
-    marker.data$chr_pos = paste0(marker.data$chromosome,'-',marker.data$base_pair_location)
-    d <- merge(bim_file, marker.data[c("SNP", "chr_pos")], by = "chr_pos", all.x = T)
-    d$V2 = d$SNP
-    d2 = subset(d, select = -c(chr_pos, SNP))
-    d2[is.na(d2)] <- '.'
+    # bim_file$chr_pos = paste0(bim_file$V1,'-',bim_file$V4)
+
+
+    if (sum(str_detect(bim_file$V2, ':')) > 0){
+        # This part checks for the ids that needs to be converted and convers them to rsids where available.
+        # quite often there are no rsids associated. 
+        # For this we could consider converting GWAS loci to chr positons.
+        to_fix = bim_file[str_detect(bim_file$V2, ':')]
+        replacement_snp_ids = convert_chr_positions_to_rsids(to_fix$V2)
+        bim_file[str_detect(bim_file$V2, ':')]$V2=replacement_snp_ids$rsid
+    }
+
+    # marker.data <- read_eqtl_marker_file(eqtl_marker_file)
+    # marker.data$chr_pos = paste0(marker.data$chromosome,'-',marker.data$base_pair_location)
+    # d <- merge(bim_file, marker.data[c("SNP", "chr_pos")], by = "chr_pos", all.x = T)
+    # d$V2 = d$SNP
+    d2 = bim_file
+    # d2[is.na(d2)] <- '.'
     fwrite(d2, file = paste0(out_prefix, '.bim'), row.names = F,col.names = F, quote = F, sep = "\t")
 
     return(out_prefix)

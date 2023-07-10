@@ -81,3 +81,10 @@ RUN R -e 'BiocManager::install(c("liftOver"), Ncpus=4)'
 # install plink2
 RUN wget -q https://s3.amazonaws.com/plink2-assets/alpha3/plink2_linux_x86_64_20221024.zip -O /tmp/plink2.zip && \
     unzip /tmp/plink2.zip && mv plink2 /usr/bin/ && rm /tmp/plink2.zip
+
+RUN Rscript -e 'install.packages("doMC", repos="http://R-Forge.R-project.org")'
+RUN conda install -c bioconda -c conda-forge bcftools
+SHELL ["/bin/sh", "-c"]
+RUN echo "deb http://security.ubuntu.com/ubuntu/ bionic-security main" >> /etc/apt/sources.list
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    libssl1.0.0

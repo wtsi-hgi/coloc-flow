@@ -3,7 +3,7 @@ requireNamespace('yaml')
 
 gwas_significance_threshold <- 5e-8
 gwas_signal_threshold <- 1e-6
-eqtl_significance_threshold <- 5e-5
+
 cojo_strict_threshold <- 1e-4
 coloc_threshold <- 0.7
 chromosomes <- c(1:22, 'X', 'Y', 'XY', 'M')

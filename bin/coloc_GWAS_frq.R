@@ -2,14 +2,20 @@
 library(optparse)
 library(data.table)
 library(dplyr)
-
+library(data.table)
+requireNamespace('dplyr')
+requireNamespace('tidyr')
+library("stringr") 
+eqtl_significance_threshold <- 5e-5
 option_list <- list(
     make_option('--gwas', action="store", help="path to GWAS summary statistic"),
     make_option('--eqtl_fofn', action="store", help="path to fofn of eqtls"),
     make_option('--eqtl_snps', action="store", help = "path to eqtl snp_pos.txt file")
 )
 args <- parse_args(OptionParser(option_list=option_list))
-
+# args$gwas = 'GIGASTROKE_AIS_EUR_hg19_harmonised.tsv.gz'
+# args$eqtl_fofn = '/scratch/cellfunc/mo246/coloc/work/a3/b40dd3808313bcb64d3a49251b824c/eqtl.1.list'
+# args$eqtl_snps = '/scratch/cellfunc/mo246/coloc/work/a3/b40dd3808313bcb64d3a49251b824c/snp_pos.txt'
 GWAS = fs::link_path(args$gwas)
 # print(GWAS)
 # GWAS = fs::link_path('GIGASTROKE_LAS_EUR_hg19_harmonised.tsv.gz')
@@ -30,13 +36,16 @@ Significant_GWAS_Signals2 = copy(Significant_GWAS_Signals)
 eqtls <- readLines(args$eqtl_fofn)
 # eqtls <- readLines('eqtl.14.list' )
 eqtl_marker_data <- read_eqtl_marker_file(args$eqtl_snps)
-eqtl_marker_data <- read_eqtl_marker_file('snp_pos.txt')
+
 
 data_list <- lapply(eqtls, function(val){
+  print(val)
+  # val='https://yascp.cog.sanger.ac.uk/public/coloc/Astrocytes.13.gz'
+  # val='/scratch/cellfunc/shared/HUVEC_RNAseq/eQTLs_norm_counts/TensorQTL_eQTLS/general/nom_output/cis_nominal1.cis_qtl_pairs.chr1.tsv'
   # Here we reduce the computational testing burden of spining up and reading in same file multiple times
   # by prereading the files here and seeing whether there is a signal in the ceirtain file on the particular chromosomes where GWAS signal is present.
-  single_eqtl1 = load_eqtl(val, marker.data = eqtl_marker_data)
-  single_eqtl2 = single_eqtl1[single_eqtl1$p_value < eqtl_significance_threshold]
+  single_eqtl2 = load_eqtl(val, marker.data = eqtl_marker_data,eqtl_significance_threshold=eqtl_significance_threshold)
+  
   uq1 = unique(single_eqtl2$chromosome)
   un2 = unique(Significant_GWAS_Signals2$chromosome)
   int1 = intersect(un2, uq1)

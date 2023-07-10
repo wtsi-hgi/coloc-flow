@@ -4,6 +4,12 @@ library(coloc)
 # library(susieR)
 library(optparse)
 library(magrittr)
+library(dplyr)
+library(tidyr)
+requireNamespace('dplyr')
+requireNamespace('tidyr')
+library("stringr") 
+eqtl_significance_threshold <- 5e-5
 # --config /lustre/scratch123/hgi/projects/bhf_finemap/coloc/pipeline_ip13/input.yml
 option_list <- list(
     make_option('--gwas', action="store", help="path to GWAS summary statistic"),
@@ -32,12 +38,12 @@ plink2_bin = args$plink2_bin
 gcta_bin = args$gcta_bin
 contig = args$config
 
-# eQTL = 'Astrocytes.11.gz'
-# eqtl_marker_file = '/scratch/cellfunc/mo246/coloc/work/e8/a173affb86b9f530d843e3a8236c48/snp_pos.txt'
+# eQTL = 'Astrocytes.9.gz'
+# eqtl_marker_file = 'snp_pos.txt'
 # eqtl_samples_number = 192
 # GWAS = 'GIGASTROKE_AS_EUR_hg19_harmonised.tsv.gz'
-# variant = 'rs28381684'
-# bfile = 'Imputed_Genotypes_Data_All_HUVEC_Samples'
+# variant = 'rs554833'
+# bfile = './Imputed_Genotypes_Data_All_HUVEC_Samples'
 # plink2_bin = NULL
 # gcta_bin = NULL
 # contig = '/lustre/alice3/scratch/cellfunc/mo246/coloc/coloc/assets/sample_input/input.yml'
@@ -81,6 +87,8 @@ if(gwas_build != 'hg38'){
     locus_start <- min(variants_of_interest$base_pair_location)
     locus_end <- max(variants_of_interest$base_pair_location)
 }
+
+# Here we have to add the rsids if these are not present in the gwas file. rs28887923
 
 locus_filename <- paste(basename(bfile), chromosome1, locus_start, locus_end, sep = '-')
 extract_locus(
@@ -151,6 +159,7 @@ independent_signals <- dplyr::filter(independent_SNPs, p < gwas_signal_threshold
 
 for( GWAS_signal in independent_signals){
     all_but_one <- setdiff(independent_SNPs$SNP, GWAS_signal)
+
     if(length(all_but_one) > 0){
         independent_markerfile <- paste0(GWAS_signal, "_independent.snp")
         writeLines(all_but_one, con = independent_markerfile)
@@ -172,7 +181,9 @@ for( GWAS_signal in independent_signals){
     }
 
     for (qtl1 in eqtl_genes){
+
         single_eqtl = genes_of_interest[genes_of_interest$gene==qtl1, ]
+    
         single_eqtl2 = single_eqtl
         rownames(single_eqtl2) <- single_eqtl2$SNP
         single_eqtl2$N <- eqtl_samples_number
@@ -200,6 +211,7 @@ for( GWAS_signal in independent_signals){
 
             for( independent_eqtl_SNP_to_contition_on in independent_SNPs_eQTL$SNP){
                 all_but_one_eqtl <- setdiff(independent_SNPs_eQTL$SNP, independent_eqtl_SNP_to_contition_on)
+            
                 if(length(all_but_one_eqtl) > 0){
                     eqtl_independant_markerfile <- paste0(independent_eqtl_SNP_to_contition_on, "_eqtl_independent.snp")
                     writeLines(all_but_one_eqtl, con = eqtl_independant_markerfile)

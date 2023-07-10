@@ -13,7 +13,9 @@ process COLOC_ON_SIG_VARIANTS {
 
     input:
         tuple val(variant_name), path(gwas_name), path(eQTL_path), val(bfile), path(plink_files)
-        path(eqtl_snps)
+        each path(eqtl_snps)
+        each path(rsid_mappings_file)
+        each path(rsid_mappings_file_csi)
     output:
         path 'coloc_results.csv', emit: done optional true 
         path('*.jpg') optional true 

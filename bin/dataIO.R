@@ -2,7 +2,8 @@
 library(data.table)
 requireNamespace('dplyr')
 requireNamespace('tidyr')
-
+library("stringr") 
+library(tidyr)
 load_GWAS <- function(GWAS){
   message(paste('Reading GWAS:', GWAS))
 
@@ -76,16 +77,116 @@ load_GWAS <- function(GWAS){
   return(return_list)
 }
 
+convert_chr_positions_to_rsids  <- function(variant_positions){
+  # Since most of the GWAS summary statistics come with an rsid denotion
+  # we should make sure that we mapp these ids to the rsids.
+  # variant_positions = to_fix$SNP
+  Data2 = data.frame(str_split_fixed(variant_positions, '[:_]', 4))
+  Data2$X1 <-str_replace(Data2$X1, "chr", "")
+  Data2$X3_2=as.numeric(Data2$X2)-1
+  Data2$original_id=variant_positions
+  Data2_t=Data2[c('X1','X3_2','X2','original_id')]
+  Data2_t$R = paste0(Data2_t$X1,':',Data2_t$X2)
+  
+  write.table(Data2_t, file=paste0("tmp_map.bed"), sep = "\t", quote = FALSE, row.names = FALSE,col.names=FALSE)
+  bin = "bcftools query -f'%CHROM-%POS\t%ID\t%REF\t%ALT\n' -R tmp_map.bed rsid_vcf_with_ref.vcf.gz > mappings.tsv"
+  # logfile <- tempfile()
+  
+  rc <- system(bin)
+  Data2_t$V1=paste0(Data2_t$X1,'-',Data2_t$X2)
+  rownames(Data2_t)=Data2_t$map1
+  Data2_t$rsid_ref_alt = paste0(Data2_t$V1,'-',Data2$X3,'-',Data2$X4)
+  Data2_t$rsid_alt_ref = paste0(Data2_t$V1,'-',Data2$X4,'-',Data2$X3)
+  mappings=fread('mappings.tsv',sep="\t",header=FALSE)
+  mappings <- mappings %>% separate_rows(V4)
+  mappings <- mappings %>% separate_rows(V3)
+  mappings$original_id <- 'original_id'
+  mappings$rsid_ref_alt = paste0(mappings$V1,'-',mappings$V3,'-',mappings$V4)
+  mappings$rsid_alt_ref = paste0(mappings$V1,'-',mappings$V4,'-',mappings$V3)
+  Data2_t$rsid = Data2_t$original_id
+
+  merged2 = left_join(Data2_t, mappings, by = join_by(rsid_ref_alt == rsid_ref_alt),  multiple = "any",unmatched = "drop")
+  merged2 = merged2[!is.na(merged2$V2),]
+  merged2 = subset(merged2, select = -c(rsid) )
+  names(merged2)[names(merged2) == "V2"] <- "rsid"
+  merged3 = merged2[c('rsid','rsid_ref_alt')]  
+
+  merged32 = left_join(Data2_t, mappings, by = join_by(rsid_ref_alt == rsid_alt_ref),  multiple = "any",unmatched = "drop")
+  merged32 = merged32[!is.na(merged32$V2),]
+  merged32 = subset(merged32, select = -c(rsid) )
+  names(merged32)[names(merged32) == "V2"] <- "rsid"
+  merged32 = merged32[c('rsid','rsid_alt_ref')]   
+  # names(merged32)[names(merged32) == "rsid_alt_ref"] <- "rsid_ref_alt" 
+
+  Data2_t = Data2_t %>% 
+    rows_update(unique(merged32), by = "rsid_alt_ref") 
+
+  Data2_t = Data2_t %>% 
+    rows_update(unique(merged3), by = "rsid_ref_alt")
+
+  file.remove("mappings.tsv")
+  file.remove("tmp_map.bed")
+  return(Data2_t)
+}
+
 #### Eqtl data
-load_eqtl <- function(eqtl.file, marker.file, marker.data, build = 'hg38'){
+load_eqtl <- function(eqtl.file, marker.file, marker.data, build = 'hg38',eqtl_significance_threshold=10){
     message(paste("Reading eQTL:", eqtl.file))
 
     # https://zenodo.org/record/6104982
-    eqtl <- fread(eqtl.file, col.names = c("gene", "SNP", "distance_to_TSS", "p", "beta"))
-    eqtl$se <- abs(eqtl$beta) / sqrt(qchisq(eqtl$p, df = 1, lower.tail = F))
+    # eqtl <- fread('/scratch/cellfunc/shared/HUVEC_RNAseq/eQTLs_norm_counts/TensorQTL_eQTLS/general/nom_output/cis_nominal1.cis_qtl_pairs.chr1.tsv')
+    # eqtl.file=eQTL
+    # marker.file = eqtl_marker_file
+    eqtl <- fread(eqtl.file)
+    # check if file has headers, if it doesnt then ve assume the order is as per:
+    # "gene", "SNP", "distance_to_TSS", "p", "beta"
+    if ('V1' %in% names(eqtl)){
+        names(eqtl)=c("gene", "SNP", "distance_to_TSS", "p", "beta")
+        eqtl$se <- abs(eqtl$beta) / sqrt(qchisq(eqtl$p, df = 1, lower.tail = F))
+    }else{
+      renaming_rules <- list(
+        'P' = "p",
+        'P-value' = "p",
+        'pval_nominal' = "p",
+        'tss_distance' = "distance_to_TSS",
+        'variant_id' = "SNP",
+        'phenotype_id' = "gene",
+        'slope' = 'beta',
+        'slope_se'='se'
+      )
+
+      col.names <- unique(renaming_rules)
+
+      # Gwas col rename
+      table_cols <- c(
+        setNames(names(renaming_rules), nm=renaming_rules),
+        unlist(col.names)
+      )
+      eqtl <- dplyr::select(eqtl, !!!dplyr::any_of(table_cols))
+
+      # Check if beta exists, if not calculate this.
+      if (!'beta' %in% names(eqtl)){
+        eqtl$beta = eqtl$se * sqrt(qchisq(eqtl$p, df = 1, lower.tail = F))
+      }
+    }
 
     if(missing(marker.data)){
       marker.data <- read_eqtl_marker_file(marker.file, build)
+    }
+
+    # Check if here we have a variant id in position format: chr1:68866536:T:G
+    #  if so convert this to rsid.
+    # eqtl$variant_id[0]
+    
+    eqtl = eqtl[eqtl$p < eqtl_significance_threshold]
+
+    if (sum(str_detect(eqtl$SNP, ':')) > 0){
+        # This part checks for the ids that needs to be converted and convers them to rsids where available.
+        # quite often there are no rsids associated. 
+        # For this we could consider converting GWAS loci to chr positons.
+        to_fix = eqtl[str_detect(eqtl$SNP, ':')]
+        replacement_snp_ids = convert_chr_positions_to_rsids(to_fix$SNP)
+        eqtl[str_detect(eqtl$SNP, ':')]$SNP=replacement_snp_ids$rsid
     }
 
     single_eqtl <- dplyr::inner_join(eqtl, marker.data, by = 'SNP')

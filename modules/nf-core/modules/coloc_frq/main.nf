@@ -15,6 +15,8 @@ process COLOC_FREQ_AND_SNPS {
         each path(GWAS)
         each path(eqtl_fofn)
         path(eqtl_snps)
+        path(rsid_mappings_file)
+        path(rsid_mappings_file_csi)
 
     output:
         // path('Done.tmp')
