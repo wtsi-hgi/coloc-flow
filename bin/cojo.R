@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 # https://yanglab.westlake.edu.cn/software/gcta/#COJO
 library(data.table)
 requireNamespace('dplyr')

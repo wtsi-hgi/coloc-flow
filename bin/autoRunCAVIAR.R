@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 # This script takes three arguments
 # - the path to the clean gwas summary statistics file
 # - path to the clean eQTL data
@@ -18,6 +19,8 @@ suppressPackageStartupMessages(library(qqman))
 option_list = list(
   make_option(c("-e", "--qtl"), type="character", default=NULL, 
               help="path to prepped qtl summary statistics", metavar="character"),
+  make_option(c("-bf", "--bfile"), type="character", default=NULL, 
+              help="path to bfile", metavar="character"),
   make_option(c("-g", "--gwas"), type="character", default=NULL, 
               help="path to clean gwas summary statistics", metavar="character"),
   make_option(c("-a", "--appel"), type="character", default=NULL, 
@@ -53,6 +56,7 @@ if (is.null(opt$appel)){
 
 # Assign input variables --------------------------------------------------
 gwasFileName <- paste0(opt$gwas)
+bfile <- paste0(opt$bfile)
 #gwasFileName <- "../colocalization/cleanGWAS_Summary_Stats/GWAS_Alanine_Aminotransferase_Levels_Sinnott_ALT_2021_NatGenet_hg38.txt"
 qtlFileName <- paste0(opt$qtl)
 #qtlFileName <- "../pubAvail_QTL/GTEx/GTEx_Analysis_v8_eQTL/Adipose_Subcutaneous.v8.signif_variant_gene_pairs_pval005.txt.gz"
@@ -131,7 +135,7 @@ foreach(rr = 1:nrow(topSigQTL), .combine = rbind) %dopar% {
     gwasRegList <- data.frame(gwasMatch[, "hg38_markername"])
     snpListFile <- paste0("check_in_1kG_snpList.txt")
     write.table(gwasRegList, file = snpListFile, quote = F, row.names = F, col.names = F)
-    axe1 <- system(paste0("grep -f ", snpListFile, " /scratch/vasccell/cs806/colocalization/1000Genome/euroSamps1kGMerge.bim  | awk \'{print $2}\'"), intern = T)
+    axe1 <- system(paste0("grep -f ", snpListFile, " ", bfile ".bim  | awk \'{print $2}\'"), intern = T)
     gwasMatch <- gwasMatch[gwasMatch$hg38_markername %in% axe1, ]
     getWin <- subset(getWin, getWin$snps %in% gwasMatch$hg38_markername)
     
@@ -146,8 +150,8 @@ foreach(rr = 1:nrow(topSigQTL), .combine = rbind) %dopar% {
     
     write.table(getWin, file = qtlInput, quote = F, col.names = F, row.names = F)
     write.table(gwasMatch, file = gwasInput, quote = F, col.names = F, row.names = F)
-    system(paste0("plink --bfile /scratch/vasccell/cs806/colocalization/1000Genome/euroSamps1kGMerge --extract ", gwasInput, " --r --matrix --threads 6 --out ", gwasInput))
-    system(paste0("plink --bfile /scratch/vasccell/cs806/colocalization/1000Genome/euroSamps1kGMerge --extract ", qtlInput, " --r --matrix --threads 6 --out ", qtlInput))
+    system(paste0("plink --bfile ",bfile," --extract ", gwasInput, " --r --matrix --threads 6 --out ", gwasInput))
+    system(paste0("plink --bfile ",bfile," --extract ", qtlInput, " --r --matrix --threads 6 --out ", qtlInput))
     system(paste0("rm ", folder,  "*.log"))
     system(paste0("rm ", folder,  "*.nosex"))
     

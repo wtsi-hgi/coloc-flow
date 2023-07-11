@@ -11,7 +11,7 @@ process SMR_HEIDI {
     }
 
     input: 
-        tuple path(GWAS), path(eQTL)
+        tuple val(variant_name), path(gwas_name), path(eQTL_path), val(bfile), path(plink_files)
 
     output:
         path('Done.tmp')
@@ -21,7 +21,8 @@ process SMR_HEIDI {
     script:
 
     """
-        smr --bfile ${params.bfile} --gwas-summary /scratch/vasccell/cs806/colocalization/zhu_SMR/GWAS_Large_Artery_Stroke_Eur_Mishra_2022_Nature_hg38.txt_hg38_smrHEIDI.txt --beqtl-summary tenQTLs/HUVEC_ATACseq_Cis_eqtls --out smrResults/tenHUVEC_ATAC-SEQ_QTL_Mishra2022_Stroke_LAS_SMR_HEIDI
-        Rscript auto_process_SMR_HEIDI_Results.R smrResults/tenHUVEC_ATAC-SEQ_QTL_Mishra2022_Stroke_LAS_SMR_HEIDI.smr
+        #smr --bfile ${bfile} --gwas-summary /scratch/vasccell/cs806/colocalization/zhu_SMR/GWAS_Large_Artery_Stroke_Eur_Mishra_2022_Nature_hg38.txt_hg38_smrHEIDI.txt --beqtl-summary tenQTLs/HUVEC_ATACseq_Cis_eqtls --out smrResults/tenHUVEC_ATAC-SEQ_QTL_Mishra2022_Stroke_LAS_SMR_HEIDI
+        smr --bfile ${bfile} --gwas-summary ${gwas_name} --beqtl-summary ${eQTL_path} --out smrResults/smr
+        Rscript auto_process_SMR_HEIDI_Results.R smrResults/smr.smr
     """
 }

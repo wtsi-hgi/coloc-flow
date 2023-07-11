@@ -32,9 +32,11 @@
 ========================================================================================
 */
 
-include { COLOC_FREQ_AND_SNPS } from '../modules/nf-core/modules/coloc_frq/main'
+include { COLOC_FREQ_AND_SNPS } from "$projectDir/modules/nf-core/modules/coloc_frq/main"
 // include { GWAS_FREQ } from '../modules/nf-core/modules/coloc_frq/main'
-include { COLOC_ON_SIG_VARIANTS } from '../modules/nf-core/modules/coloc_sig_variants/main'
+include { COLOC_ON_SIG_VARIANTS } from "$projectDir/modules/nf-core/modules/coloc_sig_variants/main"
+include { eCAVIAR } from "$projectDir/modules/nf-core/modules/eCaviar/main"
+include { SMR_HEIDI } from "$projectDir/modules/nf-core/modules/smr_heidi/main"
 /*
 ========================================================================================
     RUN MAIN WORKFLOW
@@ -78,7 +80,8 @@ workflow COLOC {
     // variant_id
     //   .subscribe onNext: {println "variant_id: $it"},
     //   onComplete: {println "variant_id: done"}
-
+    eCAVIAR(variant_id.combine(plink_files))
+    SMR_HEIDI(variant_id.combine(plink_files))
 }
 
 /*

@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 # This script takes one argument
 # - the path to the output file from SMR HEIDI analyses
 # This script outputs  a clean smr result in csv format

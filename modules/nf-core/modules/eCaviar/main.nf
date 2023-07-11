@@ -11,7 +11,7 @@ process eCAVIAR {
     }
 
     input: 
-        tuple path(GWAS), path(eQTL)
+        tuple val(variant_name), path(gwas_name), path(eQTL_path), val(bfile), path(plink_files)
 
     output:
         path('Done.tmp')
@@ -21,7 +21,7 @@ process eCAVIAR {
     script:
 
     """
-        Rscript autoRunCAVIAR.R -e ../huvecEQTL/huvecImputeGenoEQTL/tensorEQTL_All_pval005.tsv.gz -g /scratch/vasccell/cs806/colocalization/cleanGWAS_Summary_Stats/GWAS_Stroke_Eur_Mishra_2022_Nature_hg38.txt -a tenHuvecEQTL_MishraStroke2022_gp5e5
-
+        #autoRunCAVIAR.R -e ../huvecEQTL/huvecImputeGenoEQTL/tensorEQTL_All_pval005.tsv.gz -g /scratch/vasccell/cs806/colocalization/cleanGWAS_Summary_Stats/GWAS_Stroke_Eur_Mishra_2022_Nature_hg38.txt -a tenHuvecEQTL_MishraStroke2022_gp5e5
+        autoRunCAVIAR.R -e ${eQTL_path} -g ${gwas_name} -bf ${bfile} -a eCaviar_Result
     """
 }

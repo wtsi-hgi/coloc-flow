@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 requireNamespace('biomaRt')
 requireNamespace('yaml')
 
