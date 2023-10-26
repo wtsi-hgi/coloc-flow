@@ -6,7 +6,7 @@
 [![Cite with Zenodo](http://img.shields.io/badge/DOI-10.5281/zenodo.XXXXXXX-1073c8?labelColor=000000)](https://doi.org/10.5281/zenodo.XXXXXXX)
 
 <p align="center">
-  <img src="https://github.com/wtsi-hgi/coloc/blob/main/assets/images/Coloc_flow_logo.png" width="80%"/>
+  <img src="https://github.com/wtsi-hgi/coloc/blob/main/assets/images/Coloc_flow_logo.png" width="50%"/>
 </p>
 
 ## Introduction
