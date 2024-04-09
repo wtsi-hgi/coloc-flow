@@ -5,10 +5,12 @@
 ## Introduction
 
 <!-- TODO nf-core: Write a 1-2 sentence summary of what data the pipeline is for and what it does -->
-**nf-core/coloc** is a bioinformatics best-practice analysis pipeline for Colocalised GWAS with eQTLs. Here we have integrated COJO for conditioning each of the SNPs before performing colocalisation analysis using COLOC.
+**nf-core/coloc** is a bioinformatics best-practice analysis pipeline for Colocalised GWAS with eQTLs. 
+Here we have integrated:
+1) COJO for conditioning each of the SNPs before performing colocalisation analysis using COLOC.
 We are currently also adding:
-1) eCAVIAR (https://pubmed.ncbi.nlm.nih.gov/27866706/)
-2) SMR, HEIDI (https://www.nature.com/articles/ng.3538)
+2) eCAVIAR (https://pubmed.ncbi.nlm.nih.gov/27866706/)
+3) SMR, HEIDI (https://www.nature.com/articles/ng.3538)
 
 The pipeline is built using [Nextflow](https://www.nextflow.io), a workflow tool to run tasks across multiple compute infrastructures in a very portable manner. It uses Docker/Singularity containers making installation trivial and results highly reproducible. The [Nextflow DSL2](https://www.nextflow.io/docs/latest/dsl2.html) implementation of this pipeline uses one container per process which makes it much easier to maintain and update software dependencies. Where possible, these processes have been submitted to and installed from [nf-core/modules](https://github.com/nf-core/modules) in order to make them available to all nf-core pipelines, and to everyone within the Nextflow community!
 
