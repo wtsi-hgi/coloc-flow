@@ -10,6 +10,7 @@ requireNamespace('dplyr')
 requireNamespace('tidyr')
 library("stringr") 
 eqtl_significance_threshold <- 5e-5
+gwas_significance_threshold <- 5e-7
 # --config /lustre/scratch123/hgi/projects/bhf_finemap/coloc/pipeline_ip13/input.yml
 option_list <- list(
     make_option('--gwas', action="store", help="path to GWAS summary statistic"),
@@ -38,31 +39,49 @@ plink2_bin = args$plink2_bin
 gcta_bin = args$gcta_bin
 contig = args$config
 
-# eQTL = 'Astrocytes.9.gz'
+
+# ---gwas GIGASTROKE_CES_EUR_hg19_harmonised.tsv.gz             --rs rs3756011             --bfile plink_genotypes             --eqtl Astrocytes.4.gz             --eqtl_snps snp_pos.txt             --config /lustre/scratch123/hgi/projects/bhf_finemap/coloc/pipeline_ip13/input.yml
+# eQTL = 'Astrocytes.4.gz'
 # eqtl_marker_file = 'snp_pos.txt'
 # eqtl_samples_number = 192
-# GWAS = 'GIGASTROKE_AS_EUR_hg19_harmonised.tsv.gz'
-# variant = 'rs554833'
-# bfile = './Imputed_Genotypes_Data_All_HUVEC_Samples'
+# GWAS = 'GIGASTROKE_CES_EUR_hg19_harmonised.tsv.gz'
+# variant = 'rs3756011'
+# bfile = './plink_genotypes'
 # plink2_bin = NULL
 # gcta_bin = NULL
-# contig = '/lustre/alice3/scratch/cellfunc/mo246/coloc/coloc/assets/sample_input/input.yml'
+# contig = '/lustre/scratch123/hgi/projects/bhf_finemap/coloc/pipeline_ip13/input.yml'
+# args$eqtl_snps = 'snp_pos.txt'
 
 GWAS_name = tools::file_path_sans_ext(basename(GWAS), compression = T)
 eQTL_name = strsplit(tools::file_path_sans_ext(basename(eQTL)), "\\.")[[1]]
 eQTL_name = paste(eQTL_name[1:length(eQTL_name)-1], collapse = "_")
 
+config <- read_config(contig, eQTL_name)
+if (is.null(config$build)){
+    bd ='hg38'
+}else{
+    bd =config$build
+}
+
 config <- read_config(contig, GWAS_name)
+if (is.null(config$build)){
+    bd2 ='hg38'
+}else{
+    bd2 =config$build
+}
 
-Full_GWAS_Sum_Stats = load_GWAS(GWAS)$map
-Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats)
-single_eqtl1 = load_eqtl(eQTL, eqtl_marker_file)
+eqtl_marker_data <- read_eqtl_marker_file(args$eqtl_snps, build = bd2) # Dependant on which build we are using we preload the SNP variant file to ease the mapping between different builds.
+Full_GWAS_Sum_Stats = load_eqtl(GWAS, marker.data = eqtl_marker_data, build = bd2)
+Significant_GWAS_Signals <- get_gwas_significant_signals(Full_GWAS_Sum_Stats,threshold=gwas_significance_threshold)
 
-row1 = Significant_GWAS_Signals[Significant_GWAS_Signals$variant_id == variant,]
+eqtl_marker_data <- read_eqtl_marker_file(args$eqtl_snps, build = bd) 
+single_eqtl1 = load_eqtl(eQTL, marker.data = eqtl_marker_data, build = bd)
+
+row1 = Significant_GWAS_Signals[Significant_GWAS_Signals$SNP == variant,]
 base_pair_location <- row1[["base_pair_location"]]
-variant_id <- row1[["variant_id"]]
+SNP <- row1[["SNP"]]
 chromosome1 <- row1[["chromosome"]]
-print(paste('Running GWAS variant', variant_id))
+print(paste('Running GWAS variant', SNP))
 
 locus_start <- base_pair_location - 1e6
 locus_end <- base_pair_location + 1e6
@@ -72,21 +91,22 @@ variants_of_interest <- dplyr::filter(Full_GWAS_Sum_Stats,
     between(base_pair_location, locus_start, locus_end)
 )
 
-if(!is.null(config$build)){
-    gwas_build <- config$build
-} else{
-    gwas_build <- get_df_build_version(df = variants_of_interest)
-}
+gwas_build = bd2
+# if(!is.null(config$build)){
+#     gwas_build <- config$build
+# } else{
+#     gwas_build <- get_df_build_version(df = variants_of_interest)
+# }
 
-if(gwas_build != 'hg38'){
-    message(paste('Convert GWAS positions from', gwas_build, 'to hg38'))
-    ch <- load_chain_file(from = gwas_build, to = 'hg38')
-    variants_of_interest <- lift_over_df(variants_of_interest, chain = ch)
-    variants_of_interest <- dplyr::filter(variants_of_interest, chromosome == chromosome1)
+# if(gwas_build != 'hg38'){
+#     message(paste('Convert GWAS positions from', gwas_build, 'to hg38'))
+#     ch <- load_chain_file(from = gwas_build, to = 'hg38')
+#     variants_of_interest <- lift_over_df(variants_of_interest, chain = ch)
+#     variants_of_interest <- dplyr::filter(variants_of_interest, chromosome == chromosome1)
 
-    locus_start <- min(variants_of_interest$base_pair_location)
-    locus_end <- max(variants_of_interest$base_pair_location)
-}
+#     locus_start <- min(variants_of_interest$base_pair_location)
+#     locus_end <- max(variants_of_interest$base_pair_location)
+# }
 
 # Here we have to add the rsids if these are not present in the gwas file. rs28887923
 
@@ -137,7 +157,7 @@ genes_of_interest <- dplyr::filter(single_eqtl1,
 )
 eqtl_genes <- unique(genes_of_interest$gene)
 
-cojo_filename <- paste0(variant_id, '_', GWAS_name, "_sum.txt")
+cojo_filename <- paste0(SNP, '_', GWAS_name, "_sum.txt")
 fwrite(Cojo_Dataframe, file = cojo_filename, row.names = F, quote = F, sep = "\t")
 
 cojo_out <- run_cojo(
@@ -145,13 +165,13 @@ cojo_out <- run_cojo(
     bfile = locus_filename,
     summary_stat = cojo_filename,
     pvalue = cojo_strict_threshold,
-    out_prefix = paste(variant_id, GWAS_name, "step1", sep = "_")
+    out_prefix = paste(SNP, GWAS_name, "step1", sep = "_")
 )
 # bin = NULL, bfile, marker_list = NULL, conditional_markers = NULL, summary_stat, pvalue, out_prefix
 coloc_results <- list()
 if(!file.exists(cojo_out$independent_signals)){
     warning('No independant SNPs in GWAS found')
-    independent_SNPs <- dplyr::rename(row1, SNP = variant_id, p = p_value)
+    independent_SNPs <- dplyr::rename(row1, SNP = SNP, p = p)
 } else {
     independent_SNPs <- fread(cojo_out$independent_signals)
 }
@@ -171,7 +191,7 @@ for( GWAS_signal in independent_signals){
             summary_stat = cojo_filename,
             pvalue = cojo_strict_threshold,
             conditional_markers = independent_markerfile,
-            out_prefix = paste(variant_id, GWAS_name, "step2", sep = '_')
+            out_prefix = paste(SNP, GWAS_name, "step2", sep = '_')
         )
 
         conditioned_dataset <- fread(cojo_cond_out$conditional_analysis)
@@ -189,9 +209,12 @@ for( GWAS_signal in independent_signals){
         single_eqtl2$N <- eqtl_samples_number
 
         if (min(single_eqtl2$p) < eqtl_significance_threshold){
+            print('yes')
+        
             Cojo_Dataframe_eqtl = make_cojo_df(single_eqtl2, source = 'eqtl')
 
-            eqtl_summary_file <- paste(variant_id, qtl1, eQTL_name, "eqtl_sum.txt", sep = "_")
+    
+            eqtl_summary_file <- paste(SNP, qtl1, eQTL_name, "eqtl_sum.txt", sep = "_")
             fwrite(Cojo_Dataframe_eqtl, file = eqtl_summary_file, row.names = F, quote = F, sep = "\t")
 
             eqtl_cojo_out <- run_cojo(
@@ -199,17 +222,18 @@ for( GWAS_signal in independent_signals){
                 bfile = locus_filename,
                 summary_stat = eqtl_summary_file,
                 pvalue = cojo_strict_threshold,
-                out_prefix = paste(variant_id, qtl1, eQTL_name, "eqtl_step1", sep = "_")
+                out_prefix = paste(SNP, qtl1, eQTL_name, "eqtl_step1", sep = "_")
             )
             if(!file.exists(eqtl_cojo_out$independent_signals)){
                 warning('No independant SNPs in eQTL found')
-                independent_SNPs_eQTL <- dplyr::rename(single_eqtl2, SNP = variant_id, p = p_value) %>%
+                independent_SNPs_eQTL <- dplyr::rename(single_eqtl2, SNP = SNP, p = p) %>%
                   dplyr::slice_min(p, n = 1, with_ties = F)
             } else {
                 independent_SNPs_eQTL <- fread(eqtl_cojo_out$independent_signals)
             }
 
             for( independent_eqtl_SNP_to_contition_on in independent_SNPs_eQTL$SNP){
+                # print(independent_eqtl_SNP_to_contition_on)}
                 all_but_one_eqtl <- setdiff(independent_SNPs_eQTL$SNP, independent_eqtl_SNP_to_contition_on)
             
                 if(length(all_but_one_eqtl) > 0){
@@ -222,7 +246,7 @@ for( GWAS_signal in independent_signals){
                         summary_stat = eqtl_summary_file,
                         pvalue = cojo_strict_threshold,
                         conditional_markers = eqtl_independant_markerfile,
-                        out_prefix = paste(variant_id, qtl1, eQTL_name, independent_eqtl_SNP_to_contition_on, "eqtl_step2", sep = "_")
+                        out_prefix = paste(SNP, qtl1, eQTL_name, independent_eqtl_SNP_to_contition_on, "eqtl_step2", sep = "_")
                     )
 
                     conditioned_dataset_eQTL <- fread(eqtl_cond_cojo_out$conditional_analysis)

@@ -28,6 +28,55 @@ On release, automated continuous integration tests run the pipeline on a full-si
 3. Paralelisid COJO conditioning and COLOC analysis
 
 
+## Datasets should contain these columns - 
+    'P' = "p_value",
+    'P-value' = "p_value",
+
+    'REF' = "reference_allele",
+    'ALT' = "alternative_allele",
+
+    'Allele1' = "effect_allele",
+    'A1' = "effect_allele",
+    'A_EFF' = "effect_allele",
+    'EA' = "effect_allele",
+
+    'Allele2' = "other_allele",
+    'AX' = 'other_allele',
+    'A_NONEFF' = 'other_allele',
+    'NEA' = 'other_allele',
+
+    'CHROM' = "chromosome",
+    'CHR' = "chromosome",
+
+    'ID' = "variant_id",
+    'MarkerName' = "variant_id",
+    'SNP' = "variant_id",
+    'rsID' = "variant_id",
+
+    'POS' = "base_pair_location",
+    'pos' = "base_pair_location",
+    'BP' = "base_pair_location",
+
+    'BETA' = "beta",
+    'Effect' = "beta",
+
+    'SE' = "standard_error",
+    'StdErr' = "standard_error",
+
+    'Freq1' = 'eaf',
+    'A1_FREQ' = 'eaf',
+    'Freq_EFF' = 'eaf',
+    'EAF' = 'eaf',
+
+    'OBS_CT' = "N",
+    'N' = 'N'
+
+
+If eqtl summary statistics data is used these columns should be present in files:
+
+"gene", "SNP", "distance_to_TSS", "p", "beta"
+if there are no colnames then the order should be like this, otherwise the pipeline will not work. 
+
 ## Quick Start
 
 1. Install [`Nextflow`](https://www.nextflow.io/docs/latest/getstarted.html#installation) (`>=21.04.0`)

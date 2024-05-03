@@ -4,6 +4,137 @@ requireNamespace('dplyr')
 requireNamespace('tidyr')
 library("stringr") 
 library(tidyr)
+
+
+#### Eqtl data
+load_eqtl <- function(eqtl.file, marker.file, marker.data, build = 'hg38',eqtl_significance_threshold=10){
+    message(paste("Reading file:", eqtl.file))
+    
+    # https://zenodo.org/record/6104982
+    # eqtl <- fread('/scratch/cellfunc/shared/HUVEC_RNAseq/eQTLs_norm_counts/TensorQTL_eQTLS/general/nom_output/cis_nominal1.cis_qtl_pairs.chr1.tsv')
+    # eqtl.file=eQTL
+    # marker.file = eqtl_marker_file
+    eqtl <- fread(eqtl.file)
+    #eqtl= map
+    # check if file has headers, if it doesnt then ve assume the order is as per:
+    # "gene", "SNP", "distance_to_TSS", "p", "beta"
+    if ('V1' %in% names(eqtl)){
+        names(eqtl)=c("gene", "SNP", "distance_to_TSS", "p", "beta")
+        eqtl$se <- abs(eqtl$beta) / sqrt(qchisq(eqtl$p, df = 1, lower.tail = F))
+    }else{
+      renaming_rules <- list(
+        'P' = "p",
+        'P-value' = "p",
+        'pval_nominal' = "p",
+        'tss_distance' = "distance_to_TSS",
+        'variant_id' = "SNP",
+        'phenotype_id' = "gene",
+        'slope' = 'beta',
+        'slope_se'='se',
+
+
+        'REF' = "reference_allele",
+        'ALT' = "alternative_allele",
+
+        'Allele1' = "effect_allele",
+        'A1' = "effect_allele",
+        'A_EFF' = "effect_allele",
+        'EA' = "effect_allele",
+
+        'Allele2' = "other_allele",
+        'AX' = 'other_allele',
+        'A_NONEFF' = 'other_allele',
+        'NEA' = 'other_allele',
+
+        'CHROM' = "chromosome",
+        'CHR' = "chromosome",
+
+        'ID' = "SNP",
+        'MarkerName' = "SNP",
+        'rsID' = "SNP",
+
+        'POS' = "base_pair_location",
+        'pos' = "base_pair_location",
+        'BP' = "base_pair_location",
+
+        'BETA' = "beta",
+        'Effect' = "beta",
+
+        'SE' = "se",
+        'StdErr' = "se",
+
+        'Freq1' = 'eaf',
+        'A1_FREQ' = 'eaf',
+        'Freq_EFF' = 'eaf',
+        'EAF' = 'eaf',
+
+        'OBS_CT' = "N",
+        'N' = 'N'
+
+      )
+
+      col.names <- unique(renaming_rules)
+
+      # Gwas col rename
+      table_cols <- c(
+        setNames(names(renaming_rules), nm=renaming_rules),
+        unlist(col.names)
+      )
+      eqtl <- dplyr::select(eqtl, !!!dplyr::any_of(table_cols))
+
+      # Check if beta exists, if not calculate this.
+      if (!'beta' %in% names(eqtl)){
+        eqtl$beta = eqtl$se * sqrt(qchisq(eqtl$p, df = 1, lower.tail = F))
+      }
+    }
+
+    if(missing(marker.data)){
+      marker.data <- read_eqtl_marker_file(marker.file, build)
+    }
+
+    # Check if here we have a variant id in position format: chr1:68866536:T:G
+    #  if so convert this to rsid.
+    # eqtl$variant_id[0]
+    
+    # For the eqtls have to add chromosome and base_pair_location for the variants.
+    # We only want to add the positions in cases when there is no existing positions already available.
+    if (!("chromosome" %in% colnames(eqtl)) & !('base_pair_location' %in% colnames(eqtl))){
+        single_eqtl <- dplyr::inner_join(eqtl, marker.data, by = 'SNP')
+    } else{
+       single_eqtl <- eqtl
+    }
+    
+
+    if(build != 'hg38'){
+        message(paste('Convert positions from', build, 'to hg38'))
+        ch <- load_chain_file(from = build, to = 'hg38')
+        single_eqtl <- lift_over_df(single_eqtl, chain = ch)
+
+    }
+
+    # single_eqtl = single_eqtl[single_eqtl$p < eqtl_significance_threshold]
+
+    if (sum(str_detect(single_eqtl$SNP, ':')) > 0){
+        # This part checks for the ids that needs to be converted and convers them to rsids where available.
+        # quite often there are no rsids associated. 
+        # For this we could consider converting GWAS loci to chr positons.
+        to_fix = single_eqtl[str_detect(single_eqtl$SNP, ':')]
+        # These need to be liftover before 
+        replacement_snp_ids = convert_chr_positions_to_rsids(to_fix$SNP)
+        single_eqtl[str_detect(single_eqtl$SNP, ':')]$SNP=replacement_snp_ids$rsid
+    }
+
+    
+
+    #eQTL col rename
+    # single_eqtl <- dplyr::rename(single_eqtl,
+    #   p_value = p,
+    #   variant_id = SNP,
+    #   standard_error = se
+    # )
+    return (single_eqtl)
+}
+
 load_GWAS <- function(GWAS){
   message(paste('Reading GWAS:', GWAS))
 
@@ -21,9 +152,10 @@ load_GWAS <- function(GWAS){
   }
 
   renaming_rules <- list(
-    'P' = "p_value",
-    'P-value' = "p_value",
-
+    # 'P' = "p_value",
+    # 'P-value' = "p_value",
+    'P' = "p",
+    'P-value' = "p",
     'REF' = "reference_allele",
     'ALT' = "alternative_allele",
 
@@ -40,11 +172,13 @@ load_GWAS <- function(GWAS){
     'CHROM' = "chromosome",
     'CHR' = "chromosome",
 
-    'ID' = "variant_id",
-    'MarkerName' = "variant_id",
-    'SNP' = "variant_id",
-    'rsID' = "variant_id",
-
+    # 'ID' = "variant_id",
+    # 'MarkerName' = "variant_id",
+    # 'SNP' = "variant_id",
+    # 'rsID' = "variant_id",
+    'ID' = "SNP",
+    'MarkerName' = "SNP",
+    'rsID' = "SNP",
     'POS' = "base_pair_location",
     'pos' = "base_pair_location",
     'BP' = "base_pair_location",
@@ -52,9 +186,10 @@ load_GWAS <- function(GWAS){
     'BETA' = "beta",
     'Effect' = "beta",
 
-    'SE' = "standard_error",
-    'StdErr' = "standard_error",
-
+    # 'SE' = "standard_error",
+    # 'StdErr' = "standard_error",
+    'SE' = "se",
+    'StdErr' = "se",
     'Freq1' = 'eaf',
     'A1_FREQ' = 'eaf',
     'Freq_EFF' = 'eaf',
@@ -87,6 +222,8 @@ convert_chr_positions_to_rsids  <- function(variant_positions){
   Data2$original_id=variant_positions
   Data2_t=Data2[c('X1','X3_2','X2','original_id')]
   Data2_t$R = paste0(Data2_t$X1,':',Data2_t$X2)
+
+  # before performing this we may want to liftover any hg37 positions to hg38
   
   write.table(Data2_t, file=paste0("tmp_map.bed"), sep = "\t", quote = FALSE, row.names = FALSE,col.names=FALSE)
   bin = "bcftools query -f'%CHROM-%POS\t%ID\t%REF\t%ALT\n' -R tmp_map.bed rsid_vcf_with_ref.vcf.gz > mappings.tsv"
@@ -127,77 +264,6 @@ convert_chr_positions_to_rsids  <- function(variant_positions){
   file.remove("mappings.tsv")
   file.remove("tmp_map.bed")
   return(Data2_t)
-}
-
-#### Eqtl data
-load_eqtl <- function(eqtl.file, marker.file, marker.data, build = 'hg38',eqtl_significance_threshold=10){
-    message(paste("Reading eQTL:", eqtl.file))
-
-    # https://zenodo.org/record/6104982
-    # eqtl <- fread('/scratch/cellfunc/shared/HUVEC_RNAseq/eQTLs_norm_counts/TensorQTL_eQTLS/general/nom_output/cis_nominal1.cis_qtl_pairs.chr1.tsv')
-    # eqtl.file=eQTL
-    # marker.file = eqtl_marker_file
-    eqtl <- fread(eqtl.file)
-    # check if file has headers, if it doesnt then ve assume the order is as per:
-    # "gene", "SNP", "distance_to_TSS", "p", "beta"
-    if ('V1' %in% names(eqtl)){
-        names(eqtl)=c("gene", "SNP", "distance_to_TSS", "p", "beta")
-        eqtl$se <- abs(eqtl$beta) / sqrt(qchisq(eqtl$p, df = 1, lower.tail = F))
-    }else{
-      renaming_rules <- list(
-        'P' = "p",
-        'P-value' = "p",
-        'pval_nominal' = "p",
-        'tss_distance' = "distance_to_TSS",
-        'variant_id' = "SNP",
-        'phenotype_id' = "gene",
-        'slope' = 'beta',
-        'slope_se'='se'
-      )
-
-      col.names <- unique(renaming_rules)
-
-      # Gwas col rename
-      table_cols <- c(
-        setNames(names(renaming_rules), nm=renaming_rules),
-        unlist(col.names)
-      )
-      eqtl <- dplyr::select(eqtl, !!!dplyr::any_of(table_cols))
-
-      # Check if beta exists, if not calculate this.
-      if (!'beta' %in% names(eqtl)){
-        eqtl$beta = eqtl$se * sqrt(qchisq(eqtl$p, df = 1, lower.tail = F))
-      }
-    }
-
-    if(missing(marker.data)){
-      marker.data <- read_eqtl_marker_file(marker.file, build)
-    }
-
-    # Check if here we have a variant id in position format: chr1:68866536:T:G
-    #  if so convert this to rsid.
-    # eqtl$variant_id[0]
-    
-    eqtl = eqtl[eqtl$p < eqtl_significance_threshold]
-
-    if (sum(str_detect(eqtl$SNP, ':')) > 0){
-        # This part checks for the ids that needs to be converted and convers them to rsids where available.
-        # quite often there are no rsids associated. 
-        # For this we could consider converting GWAS loci to chr positons.
-        to_fix = eqtl[str_detect(eqtl$SNP, ':')]
-        replacement_snp_ids = convert_chr_positions_to_rsids(to_fix$SNP)
-        eqtl[str_detect(eqtl$SNP, ':')]$SNP=replacement_snp_ids$rsid
-    }
-
-    single_eqtl <- dplyr::inner_join(eqtl, marker.data, by = 'SNP')
-
-    #eQTL col rename
-    single_eqtl <- dplyr::rename(single_eqtl,
-      p_value = p,
-      variant_id = SNP,
-      standard_error = se
-    )
-    return (single_eqtl)
 }
 
 read_eqtl_marker_file <- function (marker.file, build = 'hg38'){
@@ -255,7 +321,7 @@ add_freq <- function (df, freq){
     return(df_freq)
 }
 
-add_position <- function (df, variant_colname = 'variant_id', genotype_prefix){
+add_position <- function (df, variant_colname = 'SNP', genotype_prefix){
     stopifnot(variant_colname %in% colnames(df))
     bim_filename <- paste(genotype_prefix, 'bim', sep='.')
     bim <- fread(bim_filename, col.names = c('chromosome', 'rsid', 'base_pair_location'), select = c(1, 2, 4))

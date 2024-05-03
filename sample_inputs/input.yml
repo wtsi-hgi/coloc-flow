@@ -1,0 +1,114 @@
+gwas:
+- name: GCST90014122_buildGRCh37
+  samples_number: 225419
+  build: hg19
+  frequency_not_available: true
+  type: cc
+
+- name: GCST90014123_buildGRCh37
+  samples_number: 232596
+  build: hg19
+  frequency_not_available: true
+  type: cc
+
+- name: GWAS_UKB_logWMHnorm
+  build: hg19
+  samples_number: 18381
+  type: quant
+
+- name: GWAS_UKB_PC1_FA
+  build: hg19
+  samples_number: 17663
+  type: quant
+
+- name: GWAS_UKB_PC1_MD
+  build: hg19
+  samples_number: 17467
+  type: quant
+
+- name: BMB_any_noexclusions_sumstats_CDKP
+  build: hg19
+  type: cc
+
+- name: ICH_GWAS_phase1_finalresults_allICH.chr-pos
+  build: hg38
+  samples_number: 3026
+  type: cc
+
+- name: ICH_GWAS_phase1_finalresults_deepICH.chr-pos
+  build: hg38
+  samples_number: 2390
+  type: cc
+
+- name: ICH_GWAS_phase1_finalresults_lobarICH.chr-pos
+  build: hg38
+  samples_number: 2167
+  type: cc
+
+- name: IA.GWAS.BakkerMK.2020.sumstats.Stage_1
+  build: hg19
+  samples_number: 79429
+  type: cc
+
+- name: IA.GWAS.BakkerMK.2020.sumstats.Stage_2
+  samples_number: 317636
+  build: hg19
+  type: cc
+
+- name: IA.GWAS.BakkerMK.2020.sumstats.SAH-only
+  build: hg19
+  samples_number: 77092
+  type: cc
+
+- name: IA.GWAS.BakkerMK.2020.sumstats.uIA-only
+  build: hg19
+  samples_number: 74022
+  type: cc
+
+- name: IA.GWAS.BakkerMK.2020.sumstats.EastAsianSubset
+  build: hg19
+  samples_number: 238207
+  type: cc
+  
+- name: GIGASTROKE_AIS_Transancestry_hg19_harmonised
+  build: hg19
+  type: cc
+  
+- name: GIGASTROKE_AS_Transancestry_hg19_harmonised
+  build: hg19
+  type: cc
+
+- name: GIGASTROKE_CES_Transancestry_hg19_harmonised
+  build: hg19
+  type: cc
+
+- name: GIGASTROKE_LAS_Transancestry_hg19_harmonised
+  build: hg19
+  type: cc
+
+- name: GIGASTROKE_SVS_Transancestry_hg19_harmonised
+  build: hg19
+  type: cc
+  
+- name: GIGASTROKE_AIS_EUR_hg19_harmonised
+  build: hg19
+  type: cc
+  
+- name: GIGASTROKE_AS_EUR_hg19_harmonised
+  build: hg19
+  type: cc
+
+- name: GIGASTROKE_CES_EUR_hg19_harmonised
+  build: hg19
+  type: cc
+
+- name: GIGASTROKE_LAS_EUR_hg19_harmonised
+  build: hg19
+  type: cc
+
+- name: GIGASTROKE_SVS_EUR_hg19_harmonised
+  build: hg19
+  type: cc
+
+eqtl:
+  samples_number: 192

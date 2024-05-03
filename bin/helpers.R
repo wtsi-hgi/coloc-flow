@@ -9,7 +9,7 @@ coloc_threshold <- 0.7
 chromosomes <- c(1:22, 'X', 'Y', 'XY', 'M')
 
 get_gwas_significant_signals <- function (df, threshold=gwas_significance_threshold){
-    df_sign <- df[df$p_value < threshold]
+    df_sign <- df[df$p < threshold]
     return(df_sign)
 }
 
@@ -120,15 +120,15 @@ lift_over_df <- function (df, chain){
 }
 
 thin_out_gwas_data <- function(df, threshold = 1e-5){
-    sign_snps <- dplyr::filter(df, p_value <= threshold)
-    other_snps <- dplyr::filter(df, p_value > threshold)
+    sign_snps <- dplyr::filter(df, p <= threshold)
+    other_snps <- dplyr::filter(df, p > threshold)
     other_snps <- dplyr::slice_sample(other_snps, prop=0.1)
     rbind(sign_snps, other_snps)
 }
 
 plot_gwas <- function (df){
     gwas <- thin_out_gwas_data(df)
-    qqman::manhattan(gwas, chr = 'chromosome', bp = 'base_pair_location', snp = 'variant_id', p = 'p_value')
+    qqman::manhattan(gwas, chr = 'chromosome', bp = 'base_pair_location', snp = 'variant_id', p = 'p')
 }
 
 plot_ggwas <- function (df, position_column, pvalue_column, snp_column, highlight_snps = NULL, xlim = NULL){

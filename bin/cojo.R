@@ -14,13 +14,13 @@ make_cojo_df <- function(df, source = c('gwas', 'eqtl')){
     }
 
     Cojo_Dataframe <- dplyr::select(df,
-        SNP=variant_id,
+        SNP=SNP,
         A1=effect_allele,  # the effect allele
         A2=other_allele,   # the other allele
         freq=FREQ,         # frequency of the effect allele
         b=beta,            # effect size
-        se=standard_error,
-        p=p_value,         # p-value
+        se=se,
+        p=p,         # p-value
         N                  # sample size
     )
     Cojo_Dataframe = Cojo_Dataframe[!is.na(Cojo_Dataframe$freq), ]  # <- 0
@@ -88,7 +88,7 @@ run_cojo_on_locus <- function (gcta_bin = NULL, plink2_bin = NULL,
                                bfile, chrom, start, end, pvalue,
                                conditional_markers = NULL, summary_stat, out_prefix){
 
-    cojo_filename <- paste0(variant_id, '_', GWAS_name, "_sum.txt")
+    cojo_filename <- paste0(SNP, '_', GWAS_name, "_sum.txt")
     fwrite(summary_stat, file = cojo_filename, row.names = F, quote = F, sep = "\t")
 
     locus_filename <- paste(basename(bfile), chrom, start, end, sep = '-')
@@ -224,12 +224,14 @@ combine_cojo_results <- function (independent_signals, conditional_signals, lead
 prepare_coloc_table <- function (df){
     rules <- c(
         snp = 'variant_id', chr = 'chromosome', position = 'base_pair_location',
-        varbeta = 'standard_error', pvalues = 'p_value', 'beta', MAF = 'eaf', 'N',
+        varbeta = 'se',varbeta = 'standard_error', pvalues = 'p_value', 'beta', MAF = 'eaf',N= 'N',
         snp = 'SNP', chr = 'Chr', position = 'bp',
-        beta = 'bC', varbeta = 'bC_se', pvalues = 'pC', MAF = 'freq', 'MAF'
+        beta = 'bC', varbeta = 'bC_se', pvalues = 'pC',pvalues = 'p', MAF = 'freq', MAF='MAF'
     )
     names <- intersect(rules, colnames(df))
     rename_rules <- rules[rules %in% names]
+    names(rename_rules) <- make.unique(names(rename_rules))
+    
     D1 <- dplyr::select(df, !!rename_rules)
     D1$varbeta = D1$varbeta^2
     D1 = na.omit(D1)
