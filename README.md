@@ -48,7 +48,7 @@ On release, automated continuous integration tests run the pipeline on a full-si
 
 ## Credits
 
-nf-core/coloc was originally written by Matiss Ozols, Iaroslav Popov, Nicola Pirastu, Charles Solomon, .
+nf-core/coloc was originally written by Matiss Ozols, Iaroslav Popov, Nicola Pirastu, Charles Solomon, Arianna Landini.
 
 We thank the following people for their extensive assistance in the development of this pipeline:
 
